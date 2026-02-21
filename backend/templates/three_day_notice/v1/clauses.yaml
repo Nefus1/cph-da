@@ -1,0 +1,34 @@
+{
+  "clauses": [
+    {
+      "id": "rent_demand",
+      "title": "Rent Demand",
+      "text": "Tenant must pay all rent due within three days.",
+      "default_included": true
+    },
+    {
+      "id": "service_method",
+      "title": "Service Method",
+      "text": "Notice may be served personally, substituted service, or posting and mailing.",
+      "default_included": true
+    },
+    {
+      "id": "sf_translation",
+      "title": "San Francisco Translation Disclosure",
+      "text": "The notice includes language access disclosures required by local ordinance.",
+      "default_included": false,
+      "include_when": "county == \"San Francisco\"",
+      "depends_on": ["service_method"],
+      "exclusive_group": "translation_disclosure"
+    },
+    {
+      "id": "la_translation",
+      "title": "Los Angeles Translation Disclosure",
+      "text": "The notice includes translation disclosures required by local ordinance.",
+      "default_included": false,
+      "include_when": "county == \"Los Angeles\"",
+      "depends_on": ["service_method"],
+      "exclusive_group": "translation_disclosure"
+    }
+  ]
+}
