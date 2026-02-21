@@ -1,0 +1,16 @@
+{
+  "doc_type": "california_general_poa",
+  "version": "v1",
+  "template_file": "template.docx",
+  "jurisdiction": {
+    "base_pack": "ca_base",
+    "packs": [
+      {
+        "id": "ca_base",
+        "disclosures": [
+          "California Probate Code warning and acknowledgment language."
+        ]
+      }
+    ]
+  }
+}

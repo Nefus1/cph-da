@@ -1,0 +1,38 @@
+{
+  "questions": [
+    {
+      "id": "principal_name",
+      "prompt": "Full legal name of the principal",
+      "type": "string",
+      "required": true
+    },
+    {
+      "id": "agent_name",
+      "prompt": "Full legal name of the primary agent",
+      "type": "string",
+      "required": true
+    },
+    {
+      "id": "poa_durability",
+      "prompt": "Should this power of attorney remain effective if the principal becomes incapacitated?",
+      "type": "select",
+      "options": ["durable", "non_durable"],
+      "required": true
+    },
+    {
+      "id": "include_gifting_power",
+      "prompt": "Grant agent authority to make gifts?",
+      "type": "boolean"
+    },
+    {
+      "id": "include_real_property_power",
+      "prompt": "Grant agent authority over real property transactions?",
+      "type": "boolean"
+    },
+    {
+      "id": "principal_in_long_term_care",
+      "prompt": "Does the principal currently reside in a long-term care facility?",
+      "type": "boolean"
+    }
+  ]
+}

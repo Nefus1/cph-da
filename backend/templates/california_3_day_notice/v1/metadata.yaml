@@ -1,0 +1,105 @@
+{
+  "doc_type": "california_3_day_notice",
+  "version": "v1",
+  "template_file": "template.docx",
+  "jurisdiction": {
+    "base_pack": "ca_base",
+    "packs": [
+      {
+        "id": "ca_base",
+        "validations": [
+          {
+            "id": "amount_positive",
+            "expression": "amount_due > 0",
+            "message": "Amount due must be greater than zero."
+          }
+        ],
+        "disclosures": [
+          "California Code of Civil Procedure §1161 compliance language."
+        ]
+      },
+      {
+        "id": "la_city_rso",
+        "include_when": "city == \"Los Angeles\" and rental_type != \"single_family\"",
+        "questions": [
+          {
+            "id": "la_registration_number",
+            "prompt": "Los Angeles HCID/RSO registration number",
+            "type": "string",
+            "required": true
+          },
+          {
+            "id": "la_rso_exempt",
+            "prompt": "Is the unit claimed exempt from LA RSO?",
+            "type": "boolean",
+            "required": true
+          }
+        ],
+        "clauses": [
+          {
+            "id": "la_rso_disclosure_clause",
+            "title": "Los Angeles RSO Disclosure",
+            "text": "This notice includes Los Angeles Rent Stabilization Ordinance disclosures and registration information.",
+            "default_included": true
+          }
+        ],
+        "disclosures": [
+          "Los Angeles RSO tenant resource notice."
+        ]
+      },
+      {
+        "id": "sf_county_pack",
+        "include_when": "county == \"San Francisco\" and rental_type == \"market_rate\"",
+        "questions": [
+          {
+            "id": "sf_rent_board_registration",
+            "prompt": "San Francisco Rent Board registration number",
+            "type": "string",
+            "required": true
+          },
+          {
+            "id": "sf_just_cause_basis",
+            "prompt": "Identify just-cause basis category",
+            "type": "select",
+            "options": ["nonpayment", "nuisance", "other"],
+            "required": true
+          }
+        ],
+        "clauses": [
+          {
+            "id": "sf_local_compliance_clause",
+            "title": "San Francisco Local Compliance",
+            "text": "This notice includes disclosures required by the San Francisco Rent Ordinance.",
+            "default_included": true
+          }
+        ],
+        "disclosures": [
+          "San Francisco Rent Board filing and service advisory."
+        ]
+      },
+      {
+        "id": "oakland_subsidized_pack",
+        "include_when": "city == \"Oakland\" and rental_type == \"subsidized\"",
+        "questions": [
+          {
+            "id": "oakland_subsidy_program",
+            "prompt": "Subsidy program name (e.g., Section 8)",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "clauses": [
+          {
+            "id": "oakland_subsidized_housing_clause",
+            "title": "Oakland Subsidized Housing Notice",
+            "text": "Additional Oakland subsidized-housing notice language is included.",
+            "default_included": true
+          }
+        ],
+        "disclosures": [
+          "Oakland subsidized tenancy protections disclosure."
+        ]
+      }
+    ]
+  }
+}

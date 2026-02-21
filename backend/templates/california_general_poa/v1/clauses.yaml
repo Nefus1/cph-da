@@ -1,0 +1,54 @@
+{
+  "clauses": [
+    {
+      "id": "appointment_of_agent",
+      "title": "Appointment of Agent",
+      "text": "The principal appoints the named agent to act on the principal's behalf.",
+      "default_included": true
+    },
+    {
+      "id": "standard_banking_power",
+      "title": "Banking and Financial Institution Power",
+      "text": "Agent may access and manage deposit accounts and related financial products.",
+      "default_included": true
+    },
+    {
+      "id": "standard_personal_property_power",
+      "title": "Personal Property Power",
+      "text": "Agent may buy, sell, and manage personal property.",
+      "default_included": true
+    },
+    {
+      "id": "durable_effectiveness",
+      "title": "Durable Effectiveness",
+      "text": "This power of attorney is durable and remains effective upon incapacity.",
+      "include_when": "poa_durability == \"durable\"",
+      "exclusive_group": "durability_statement"
+    },
+    {
+      "id": "non_durable_effectiveness",
+      "title": "Non-Durable Effectiveness",
+      "text": "This power of attorney terminates upon incapacity.",
+      "include_when": "poa_durability == \"non_durable\"",
+      "exclusive_group": "durability_statement"
+    },
+    {
+      "id": "optional_gifting",
+      "title": "Optional Gifting Power",
+      "text": "Agent may make gifts within limits stated in this document.",
+      "include_when": "include_gifting_power == True"
+    },
+    {
+      "id": "optional_real_property",
+      "title": "Optional Real Property Power",
+      "text": "Agent may sell, lease, refinance, and otherwise transact in real property.",
+      "include_when": "include_real_property_power == True"
+    },
+    {
+      "id": "long_term_care_ombudsman_notice",
+      "title": "Long-Term Care Ombudsman Notice",
+      "text": "Because the principal resides in long-term care, the ombudsman contact notice is automatically included.",
+      "include_when": "principal_in_long_term_care == True"
+    }
+  ]
+}
