@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,6 +19,7 @@ from app.schemas.domain import (
     ClauseCreate,
     ClauseEvaluationRequest,
     DocumentGenerateRequest,
+    DocumentGenerateResponse,
     InterviewDraftCreate,
     InterviewDraftUpdate,
     TemplateCreate,
@@ -27,10 +27,9 @@ from app.schemas.domain import (
     TemplateVersionCreate,
     TemplateVersionResponse,
 )
+from app.services.document_generation import DocumentGenerationService
 
 router = APIRouter(tags=["domain"])
-OUTPUT_DIR = Path("generated")
-OUTPUT_DIR.mkdir(exist_ok=True)
 
 
 @router.post("/templates", response_model=TemplateResponse)
@@ -153,26 +152,44 @@ def evaluate_clause(payload: ClauseEvaluationRequest, db: Session = Depends(get_
     return {"clause_id": clause.id, "triggered": triggered, "preview": clause.content if triggered else ""}
 
 
-@router.post("/documents/generate")
+@router.post("/documents/generate", response_model=DocumentGenerateResponse)
 def generate_document(payload: DocumentGenerateRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     draft = db.query(InterviewDraft).filter(InterviewDraft.id == payload.draft_id, InterviewDraft.user_id == user.id).first()
     if not draft:
         raise HTTPException(404, "Draft not found")
 
-    file_name = f"draft-{draft.id}.txt"
-    file_path = OUTPUT_DIR / file_name
-    rendered = f"Draft {draft.id}\nAnswers: {json.loads(draft.answers_json or '{}')}\nStatus: {draft.status}\n"
-    file_path.write_text(rendered)
+    template_version = db.query(TemplateVersion).filter(TemplateVersion.id == draft.template_version_id).first()
+    if not template_version:
+        raise HTTPException(404, "Template version not found")
 
-    document = GeneratedDocument(draft_id=draft.id, file_name=file_name, storage_path=str(file_path))
+    clauses = db.query(Clause).filter(Clause.template_version_id == template_version.id).all()
+
+    service = DocumentGenerationService()
+    artifacts = service.generate(draft=draft, template_version=template_version, clauses=clauses)
+
+    document = GeneratedDocument(
+        draft_id=draft.id,
+        template_version_id=template_version.id,
+        template_version_label=artifacts.template_version_label,
+        docx_file_name=artifacts.docx_path.name,
+        pdf_file_name=artifacts.pdf_path.name if artifacts.pdf_path else None,
+        storage_path=str(artifacts.storage_path),
+        docx_sha256=artifacts.docx_sha256,
+        pdf_sha256=artifacts.pdf_sha256,
+    )
     db.add(document)
     db.commit()
     db.refresh(document)
-    return {"document_id": document.id, "file_name": file_name}
+    return DocumentGenerateResponse(
+        document_id=document.id,
+        docx_file_name=document.docx_file_name,
+        pdf_file_name=document.pdf_file_name,
+        template_version=document.template_version_label,
+        created_at=document.created_at,
+    )
 
 
-@router.get("/documents/{document_id}/file")
-def get_document(document_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def _get_document_for_user(document_id: int, db: Session, user: User) -> GeneratedDocument:
     document = (
         db.query(GeneratedDocument)
         .join(InterviewDraft, InterviewDraft.id == GeneratedDocument.draft_id)
@@ -181,4 +198,26 @@ def get_document(document_id: int, db: Session = Depends(get_db), user: User = D
     )
     if not document:
         raise HTTPException(404, "Document not found")
-    return FileResponse(document.storage_path, filename=document.file_name)
+    return document
+
+
+@router.get("/documents/{document_id}/download/docx")
+def download_document_docx(document_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    document = _get_document_for_user(document_id, db, user)
+    docx_path = Path(document.storage_path) / document.docx_file_name
+    if not docx_path.exists():
+        raise HTTPException(404, "DOCX not found")
+    return FileResponse(docx_path, filename=document.docx_file_name, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+
+@router.get("/documents/{document_id}/download/pdf")
+def download_document_pdf(document_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    document = _get_document_for_user(document_id, db, user)
+    if not document.pdf_file_name:
+        raise HTTPException(404, "PDF not available for this document")
+
+    pdf_path = Path(document.storage_path) / document.pdf_file_name
+    if not pdf_path.exists():
+        raise HTTPException(404, "PDF not found")
+
+    return FileResponse(pdf_path, filename=document.pdf_file_name, media_type="application/pdf")

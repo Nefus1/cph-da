@@ -78,6 +78,12 @@ class GeneratedDocument(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     draft_id: Mapped[int] = mapped_column(ForeignKey("interview_drafts.id"), index=True)
-    file_name: Mapped[str] = mapped_column(String(255))
+    template_version_id: Mapped[int] = mapped_column(ForeignKey("template_versions.id"), index=True)
+    template_version_label: Mapped[str] = mapped_column(String(64))
+    docx_file_name: Mapped[str] = mapped_column(String(255))
+    pdf_file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     storage_path: Mapped[str] = mapped_column(String(255))
+    docx_sha256: Mapped[str] = mapped_column(String(64))
+    pdf_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
