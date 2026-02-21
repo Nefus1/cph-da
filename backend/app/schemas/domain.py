@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -37,6 +39,14 @@ class ClauseEvaluationRequest(BaseModel):
 
 class DocumentGenerateRequest(BaseModel):
     draft_id: int
+
+
+class DocumentGenerateResponse(BaseModel):
+    document_id: int
+    docx_file_name: str
+    pdf_file_name: str | None
+    template_version: str
+    created_at: datetime
 
 
 class TemplateResponse(BaseModel):
