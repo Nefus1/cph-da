@@ -3,11 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
 from app.api.domain import router as domain_router
-from app.db.session import Base, engine
-from app.models import models  # noqa: F401
-
-Base.metadata.create_all(bind=engine)
-
 app = FastAPI(title="Contract Platform API")
 app.add_middleware(
     CORSMiddleware,
