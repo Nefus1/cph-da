@@ -1,0 +1,1063 @@
+---
+comment: |
+  Assets, debts, reimbursement claims, and the equal-division
+  (equalization) calculation for the California MSA interview.
+---
+id: equalization numbers
+reconsider: True
+code: |
+  eq = equalization([real_property, vehicles, accounts, retirement_plans, businesses, other_assets], debts)
+---
+id: property intro note
+template: character_help
+content: |
+  **Characterizing property.**
+
+  * **Community:** acquired during the ${ marriage_word } before the
+    date of separation (Fam. Code, § 760), including
+    {quasi-community property}. Title does not control.
+  * **{separate property|Separate}:** owned before the ${ marriage_word }, received by
+    gift or inheritance, or acquired after separation (§ 770).
+  * **Mixed:** part community and part separate, e.g., a house bought
+    before the ${ marriage_word } and paid down during it
+    ({Moore/Marsden}), or an account with premarital funds that
+    received contributions during the ${ marriage_word }. Enter the
+    **net community interest** as the community portion.
+    Award a mixed item to the party who owns the separate interest;
+    the agreement confirms that separate interest to the party who
+    receives the item.
+
+  The parties may agree to treat property any way they like, but an
+  agreement that *changes* the character of property is a
+  {transmutation} and must be in writing with an express
+  declaration (Fam. Code, § 852). Confirming property as separate in
+  this agreement satisfies that requirement.
+---
+#######################################################################
+# Real property
+#######################################################################
+id: any real property
+section: rev_property
+question: Do either or both parties own any real estate?
+subquestion: |
+  Include the family home, rentals, vacant land, timeshares with a
+  deeded interest, and property outside California. Include separate
+  property too, so it can be confirmed to its owner.
+yesno: real_property.there_are_any
+help: |
+  **Out-of-state real property.** A California court cannot directly
+  transfer title to land in another state, but it can order the
+  parties to sign deeds. The agreement includes a clause requiring
+  both parties to sign any document needed to carry out the
+  division.
+---
+id: real property item
+section: rev_property
+question: |
+  Real estate ${ '#' + str(i + 1) if i else '' }
+fields:
+  - Property address: real_property[i].description
+    input type: area
+    rows: 2
+    hint: 123 Main Street, Los Angeles, CA 90012
+  - Assessor's Parcel Number (APN): real_property[i].apn
+    required: False
+    grid: 6
+    help: |
+      Needed for the deed and the legal description. Find it on the
+      property tax bill or the county assessor's website.
+  - Current title vesting: real_property[i].vesting
+    required: False
+    grid: 6
+    hint: e.g., Husband and wife as community property
+  - Fair market value: real_property[i].value
+    datatype: currency
+    min: 0
+    grid: 6
+    help: |
+      Use an appraisal, a broker's opinion of value, or the agreed
+      value. Note the source in the memo. Agreed values are binding
+      for the division even if the property later sells for more or
+      less.
+  - Total loans and liens: real_property[i].encumbrance
+    datatype: currency
+    min: 0
+    grid: 6
+    help: |
+      First mortgage, HELOC, second deed of trust, tax liens, and
+      other liens. The agreement uses value minus liens as the equity.
+  - Lender(s): real_property[i].lenders
+    required: False
+  - Character: real_property[i].character
+    input type: radio
+    choices:
+      - Community property: community
+      - Mixed (part community, part separate): mixed
+      - ${ petitioner }'s separate property: sp_pet
+      - ${ respondent }'s separate property: sp_resp
+  - Net community interest: real_property[i].community_portion
+    datatype: currency
+    show if:
+      variable: real_property[i].character
+      is: mixed
+    help: |
+      The community's share of the equity under {Moore/Marsden} (or
+      as agreed). The rest of the equity is confirmed as the
+      owner's separate property.
+  - What happens to the property?: real_property[i].disposition
+    input type: radio
+    choices:
+      - Awarded to ${ petitioner }: pet
+      - Awarded to ${ respondent }: resp
+      - Sold, with net proceeds divided equally: sell
+    js show if: |
+      val("real_property[i].character") == "community" || val("real_property[i].character") == "mixed"
+help: |
+  ${ character_help }
+
+  **Buyouts.** When one party keeps the house, the equity goes into
+  the equalization calculation, and the party keeping it usually
+  must refinance the loan out of the other party's name. Until then,
+  the other party stays liable to the lender; a hold-harmless clause
+  protects only between the parties.
+---
+id: real property award terms
+section: rev_property
+question: |
+  Terms for ${ real_property[i].description.splitlines()[0] }
+if: real_property[i].disposition in ('pet', 'resp')
+fields:
+  - Days to refinance or assume the loans and remove ${ party_obj['resp' if real_property[i].disposition == 'pet' else 'pet'].ref }'s name: real_property[i].refinance_days
+    datatype: integer
+    min: 0
+    default: 180
+    help: |
+      Enter 0 if there are no loans. If the refinance does not
+      happen in time, the standard clause requires the property to
+      be listed for sale.
+  - If the refinance does not happen in time: real_property[i].refi_fallback
+    input type: radio
+    choices:
+      - The property must be listed for sale: sell
+      - The other party may seek relief from the court: court
+    default: sell
+  - Days for the other party to sign an interspousal transfer deed: real_property[i].deed_days
+    datatype: integer
+    min: 1
+    default: 30
+    help: |
+      An Interspousal Transfer Grant Deed is exempt from documentary
+      transfer tax and does not trigger property tax reassessment
+      (Rev. & Tax. Code, § 63). Have the deed signed into escrow at
+      the refinance, or recorded on signing if there are no loans.
+---
+id: real property sale terms
+section: rev_property
+question: |
+  Sale terms for ${ real_property[i].description.splitlines()[0] }
+if: real_property[i].disposition == 'sell'
+fields:
+  - List the property for sale within (days): real_property[i].list_days
+    datatype: integer
+    min: 0
+    default: 60
+  - Listing agent: real_property[i].agent
+    input type: radio
+    choices:
+      - Chosen jointly: joint
+      - Chosen by ${ petitioner }: pet
+      - Chosen by ${ respondent }: resp
+    default: joint
+  - Who lives in the property until the sale?: real_property[i].occupant
+    input type: radio
+    choices:
+      - ${ petitioner }: pet
+      - ${ respondent }: resp
+      - Neither (vacant or rented): none
+  - Who pays the mortgage, taxes, and insurance until the sale?: real_property[i].carrying_costs
+    input type: radio
+    choices:
+      - The party living there, with no reimbursement: occupant
+      - Shared equally: equal
+      - The party living there, reimbursed from the sale proceeds: reimbursed
+  - Price reductions: real_property[i].price_terms
+    input type: area
+    required: False
+    hint: e.g., The parties will follow the listing agent's recommendation on list price and reductions.
+help: |
+  If the parties cannot agree on an offer, the agreement allows
+  either party to ask the court to resolve the dispute, and the court
+  keeps jurisdiction to order the sale (Fam. Code, § 2550; Code Civ.
+  Proc., § 664.6 if the agreement is enforced as a settlement).
+---
+id: real property complete
+code: |
+  real_property[i].description
+  if not real_property[i].is_separate():
+    if real_property[i].disposition == 'sell':
+      real_property[i].list_days
+    else:
+      real_property[i].refinance_days
+  real_property[i].complete = True
+---
+id: another real property
+section: rev_property
+question: Is there any other real estate?
+subquestion: |
+  So far: ${ comma_and_list([p.description.splitlines()[0] for p in real_property.complete_elements()]) }.
+yesno: real_property.there_is_another
+---
+#######################################################################
+# Vehicles
+#######################################################################
+id: any vehicles
+section: rev_property
+question: Do either or both parties own any vehicles?
+subquestion: |
+  Cars, trucks, motorcycles, boats, RVs, and trailers.
+yesno: vehicles.there_are_any
+---
+id: vehicle item
+section: rev_property
+question: |
+  Vehicle ${ '#' + str(i + 1) if i else '' }
+fields:
+  - Year, make, and model: vehicles[i].description
+    hint: 2021 Toyota RAV4
+  - Last 4 of VIN or hull number: vehicles[i].vin_last4
+    required: False
+    maxlength: 4
+    grid: 4
+  - Fair market value: vehicles[i].value
+    datatype: currency
+    min: 0
+    grid: 4
+    help: |
+      Kelley Blue Book private-party value is a common agreed
+      standard.
+  - Loan balance: vehicles[i].encumbrance
+    datatype: currency
+    min: 0
+    grid: 4
+  - Character: vehicles[i].character
+    input type: radio
+    choices:
+      - Community property: community
+      - Mixed (part community, part separate): mixed
+      - ${ petitioner }'s separate property: sp_pet
+      - ${ respondent }'s separate property: sp_resp
+    default: community
+  - Net community interest: vehicles[i].community_portion
+    datatype: currency
+    show if:
+      variable: vehicles[i].character
+      is: mixed
+  - Awarded to: vehicles[i].awarded_to
+    input type: radio
+    choices:
+      - ${ petitioner }: pet
+      - ${ respondent }: resp
+    js show if: |
+      val("vehicles[i].character") == "community" || val("vehicles[i].character") == "mixed"
+help: |
+  The party receiving a vehicle takes it subject to its loan and
+  holds the other harmless. Leased vehicles are usually listed as a
+  debt (the remaining lease obligation) rather than an asset.
+---
+id: vehicle complete
+code: |
+  vehicles[i].description
+  vehicles[i].complete = True
+---
+id: another vehicle
+section: rev_property
+question: Is there another vehicle?
+subquestion: |
+  So far: ${ comma_and_list([v.description for v in vehicles.complete_elements()]) }.
+yesno: vehicles.there_is_another
+---
+#######################################################################
+# Financial accounts
+#######################################################################
+id: any accounts
+section: rev_property
+question: Do either or both parties have bank, brokerage, or other financial accounts?
+subquestion: |
+  Checking, savings, money market, CDs, brokerage, HSA, 529 plans,
+  cryptocurrency, and cash value life insurance. Retirement accounts
+  come next.
+yesno: accounts.there_are_any
+---
+id: account item
+section: rev_property
+question: |
+  Financial account ${ '#' + str(i + 1) if i else '' }
+fields:
+  - Institution: accounts[i].description
+    hint: Chase, Fidelity, Coinbase
+    grid: 6
+  - Type of account: accounts[i].account_type
+    input type: dropdown
+    choices:
+      - Checking: checking
+      - Savings or money market: savings
+      - Certificate of deposit: cd
+      - Brokerage or investment: brokerage
+      - Health savings account (HSA): hsa
+      - 529 education plan: education
+      - Cryptocurrency: crypto
+      - Cash value life insurance: life
+      - Other: other
+    grid: 6
+  - Last 4 digits: accounts[i].last4
+    required: False
+    maxlength: 4
+    grid: 4
+  - Balance or value: accounts[i].value
+    datatype: currency
+    grid: 4
+  - As of: accounts[i].value_date
+    datatype: date
+    required: False
+    grid: 4
+  - Character: accounts[i].character
+    input type: radio
+    choices:
+      - Community property: community
+      - Mixed (part community, part separate): mixed
+      - ${ petitioner }'s separate property: sp_pet
+      - ${ respondent }'s separate property: sp_resp
+    default: community
+  - Net community interest: accounts[i].community_portion
+    datatype: currency
+    show if:
+      variable: accounts[i].character
+      is: mixed
+  - Awarded to: accounts[i].awarded_to
+    input type: radio
+    choices:
+      - ${ petitioner }: pet
+      - ${ respondent }: resp
+      - Divided equally in kind: split
+    js show if: |
+      val("accounts[i].character") == "community" || val("accounts[i].character") == "mixed"
+help: |
+  **Valuation date.** Balances change. Agree on a valuation date
+  (usually close to signing) and say whether post-separation
+  deposits and withdrawals are adjusted. Earnings on a party's
+  post-separation deposits are that party's separate property.
+
+  **529 plans.** These belong to the account owner, not the child.
+  Consider naming a successor owner or agreeing the funds will be
+  used only for the child's education.
+---
+id: account complete
+code: |
+  accounts[i].description
+  accounts[i].complete = True
+---
+id: another account
+section: rev_property
+question: Is there another financial account?
+subquestion: |
+  So far: ${ comma_and_list([a.description for a in accounts.complete_elements()]) }.
+yesno: accounts.there_is_another
+---
+#######################################################################
+# Retirement
+#######################################################################
+id: any retirement
+section: rev_property
+question: Do either or both parties have retirement plans or pensions?
+subquestion: |
+  401(k), 403(b), 457, IRA, Roth IRA, pension (defined benefit),
+  CalPERS, CalSTRS, LACERA, federal (FERS/TSP), and military
+  retirement. Include plans that are separate property.
+yesno: retirement_plans.there_are_any
+help: |
+  Pension rights earned during the ${ marriage_word } are community
+  property even if not vested ({In re Marriage of Brown}). The
+  standard approach divides the community interest by {QDRO} using
+  the time rule, so no present value is needed for a pension.
+---
+id: retirement item
+section: rev_property
+question: |
+  Retirement plan ${ '#' + str(i + 1) if i else '' }
+fields:
+  - Plan name: retirement_plans[i].description
+    hint: Acme Corp. 401(k) Savings Plan
+  - Plan type: retirement_plans[i].plan_type
+    input type: dropdown
+    choices:
+      - 401(k), 403(b), or 457 (defined contribution): dc
+      - Traditional, SEP, or SIMPLE IRA: ira
+      - Roth IRA: roth_ira
+      - Private pension (defined benefit): db
+      - CalPERS: calpers
+      - CalSTRS: calstrs
+      - County retirement system (e.g., LACERA): county
+      - Federal (FERS, CSRS, or TSP): federal
+      - Military retirement: military
+      - Other: other
+  - Participant: retirement_plans[i].participant
+    input type: radio
+    choices:
+      - ${ petitioner }: pet
+      - ${ respondent }: resp
+  - Character: retirement_plans[i].character
+    input type: radio
+    choices:
+      - Entirely community: community
+      - Mixed (contributions or service before marriage or after separation): mixed
+      - ${ petitioner }'s separate property: sp_pet
+      - ${ respondent }'s separate property: sp_resp
+    default: mixed
+  - Balance or estimated value: retirement_plans[i].value
+    datatype: currency
+    min: 0
+    required: False
+    help: |
+      Optional for pensions divided by QDRO. Needed if the plan is
+      awarded entirely to one party, so the equalization is accurate.
+  - Net community interest: retirement_plans[i].community_portion
+    datatype: currency
+    min: 0
+    required: False
+    show if:
+      variable: retirement_plans[i].character
+      is: mixed
+    help: |
+      Needed only if the plan is awarded entirely to one party.
+      For a QDRO division, the plan administrator applies the time
+      rule or a tracing.
+  - How is the community interest divided?: retirement_plans[i].division
+    input type: radio
+    choices:
+      - Divided equally by QDRO / domestic relations order (or IRA transfer): qdro
+      - Awarded entirely to ${ petitioner }: pet
+      - Awarded entirely to ${ respondent }: resp
+    js show if: |
+      val("retirement_plans[i].character") == "community" || val("retirement_plans[i].character") == "mixed"
+help: |
+  **QDRO vs. buyout.** A QDRO splits the community share at the plan
+  level, with no tax at transfer. Awarding the whole plan to the
+  participant requires a present value, and pre-tax money should be
+  discounted for taxes when traded against after-tax assets.
+
+  **IRAs** are divided by a transfer incident to divorce
+  (26 U.S.C. § 408(d)(6)); no QDRO is needed.
+
+  **Public plans.** CalPERS, CalSTRS, county systems, federal plans,
+  and military retirement each have their own order format. Military
+  retirement under the USFSPA requires the 10-year/10-year rule for
+  direct DFAS payments and an election of Survivor Benefit Plan
+  coverage within one year.
+---
+id: retirement order terms
+section: rev_property
+question: |
+  Order terms for ${ retirement_plans[i].description }
+if: retirement_plans[i].division == 'qdro' and retirement_plans[i].needs_order()
+fields:
+  - Who prepares the order?: retirement_plans[i].order_preparer
+    input type: radio
+    choices:
+      - A QDRO specialist jointly retained by the parties: specialist
+      - Counsel for ${ petitioner }: pet
+      - Counsel for ${ respondent }: resp
+    default: specialist
+  - Who pays for the order?: retirement_plans[i].order_cost
+    input type: radio
+    choices:
+      - Shared equally: equal
+      - The participant: participant
+      - The non-participant: nonparticipant
+    default: equal
+  - Award survivor benefits to the non-participant for the community share?: retirement_plans[i].survivor_benefit
+    datatype: yesnoradio
+    default: True
+    show if:
+      code: retirement_plans[i].offers_survivor()
+    help: |
+      Without survivor benefits, the non-participant's share of a
+      pension ends at the participant's death. The court may order
+      the participant to elect survivor coverage (Fam. Code, § 2610).
+---
+id: retirement complete
+code: |
+  retirement_plans[i].description
+  if not retirement_plans[i].is_separate() and retirement_plans[i].division == 'qdro' and retirement_plans[i].needs_order():
+    retirement_plans[i].order_preparer
+  if not retirement_plans[i].is_separate() and retirement_plans[i].division != 'qdro' and not retirement_plans[i].value:
+    retirement_plans[i].value_confirmed
+  retirement_plans[i].complete = True
+---
+id: retirement value warning
+section: rev_property
+question: No value entered
+subquestion: |
+  ${ retirement_plans[i].description } is awarded entirely to one
+  party, but no value was entered, so it will count as $0 in the
+  equalization. Go back to enter a value, or continue if the parties
+  agree it has no value.
+continue button field: retirement_plans[i].value_confirmed
+---
+id: another retirement
+section: rev_property
+question: Is there another retirement plan?
+subquestion: |
+  So far: ${ comma_and_list([r.description for r in retirement_plans.complete_elements()]) }.
+yesno: retirement_plans.there_is_another
+---
+#######################################################################
+# Businesses
+#######################################################################
+id: any businesses
+section: rev_property
+question: Do either or both parties own an interest in a business?
+subquestion: |
+  Sole proprietorships, partnerships, LLCs, corporations, and
+  professional practices.
+yesno: businesses.there_are_any
+help: |
+  Business valuation is often the most contested issue in a
+  division. Goodwill of a professional practice is community
+  property to the extent developed during the ${ marriage_word }.
+  If the business existed before marriage, the community interest
+  is usually apportioned by *Pereira* or *Van Camp* (Pereira v.
+  Pereira (1909) 156 Cal. 1; Van Camp v. Van Camp (1921) 53
+  Cal.App. 17).
+---
+id: business item
+section: rev_property
+question: |
+  Business interest ${ '#' + str(i + 1) if i else '' }
+fields:
+  - Business name: businesses[i].description
+  - Entity type: businesses[i].entity_type
+    input type: dropdown
+    choices:
+      - Sole proprietorship: sole
+      - Partnership: partnership
+      - Limited liability company: llc
+      - Corporation: corporation
+      - Professional corporation: pc
+    grid: 6
+  - Ownership percentage held by the parties: businesses[i].ownership_pct
+    datatype: number
+    min: 0
+    max: 100
+    default: 100
+    grid: 6
+  - Value of the parties' interest: businesses[i].value
+    datatype: currency
+    min: 0
+  - Character: businesses[i].character
+    input type: radio
+    choices:
+      - Community property: community
+      - Mixed (part community, part separate): mixed
+      - ${ petitioner }'s separate property: sp_pet
+      - ${ respondent }'s separate property: sp_resp
+    default: community
+  - Net community interest: businesses[i].community_portion
+    datatype: currency
+    show if:
+      variable: businesses[i].character
+      is: mixed
+  - Awarded to: businesses[i].awarded_to
+    input type: radio
+    choices:
+      - ${ petitioner }: pet
+      - ${ respondent }: resp
+    js show if: |
+      val("businesses[i].character") == "community" || val("businesses[i].character") == "mixed"
+---
+id: business complete
+code: |
+  businesses[i].description
+  businesses[i].complete = True
+---
+id: another business
+section: rev_property
+question: Is there another business interest?
+yesno: businesses.there_is_another
+---
+#######################################################################
+# Other assets
+#######################################################################
+id: any other assets
+section: rev_property
+question: Are there any other significant assets?
+subquestion: |
+  Jewelry, art, collectibles, firearms, tax refunds, stock options,
+  RSUs, timeshares, intellectual property, pets, and claims against
+  third parties. Ordinary household furniture is handled on a later
+  screen.
+yesno: other_assets.there_are_any
+help: |
+  **Pets.** The court may assign sole or joint ownership of a pet
+  animal, taking into account the care of the animal (Fam. Code,
+  § 2605).
+
+  **Stock options and RSUs.** Unvested grants are often apportioned
+  with a time rule (In re Marriage of Hug (1984) 154 Cal.App.3d 780;
+  In re Marriage of Nelson (1986) 177 Cal.App.3d 150). Describe the
+  formula in the description.
+---
+id: other asset item
+section: rev_property
+question: |
+  Other asset ${ '#' + str(i + 1) if i else '' }
+fields:
+  - Description: other_assets[i].description
+    input type: area
+    rows: 2
+  - Value: other_assets[i].value
+    datatype: currency
+    min: 0
+  - Character: other_assets[i].character
+    input type: radio
+    choices:
+      - Community property: community
+      - Mixed (part community, part separate): mixed
+      - ${ petitioner }'s separate property: sp_pet
+      - ${ respondent }'s separate property: sp_resp
+    default: community
+  - Net community interest: other_assets[i].community_portion
+    datatype: currency
+    show if:
+      variable: other_assets[i].character
+      is: mixed
+  - Awarded to: other_assets[i].awarded_to
+    input type: radio
+    choices:
+      - ${ petitioner }: pet
+      - ${ respondent }: resp
+      - Divided equally in kind: split
+    js show if: |
+      val("other_assets[i].character") == "community" || val("other_assets[i].character") == "mixed"
+---
+id: other asset complete
+code: |
+  other_assets[i].description
+  other_assets[i].complete = True
+---
+id: another other asset
+section: rev_property
+question: Is there another asset?
+yesno: other_assets.there_is_another
+---
+id: household goods
+section: rev_property
+question: Household furniture, furnishings, and personal effects
+fields:
+  - How are these divided?: household_goods
+    input type: radio
+    choices:
+      - Each party keeps what is in their possession: possession
+      - Divided according to a list: list
+    default: possession
+  - List: household_goods_list
+    input type: area
+    show if:
+      variable: household_goods
+      is: list
+    hint: |
+      To Petitioner: the dining set, the piano...
+help: |
+  These items are usually treated as having no value for the
+  equalization, because their used value is small. If anything is
+  valuable (art, jewelry, collections), list it as an "other asset"
+  instead.
+---
+#######################################################################
+# Debts
+#######################################################################
+id: any debts
+section: rev_property
+question: Do either or both parties have debts?
+subquestion: |
+  Credit cards, personal and student loans, medical debt, tax debt,
+  vehicle leases, and loans from family. Mortgages and car loans
+  entered earlier are already counted.
+yesno: debts.there_are_any
+help: |
+  **Debts after separation.** Debts incurred after the date of
+  separation for non-necessaries are confirmed to the party who
+  incurred them without offset (Fam. Code, § 2623(b)).
+
+  **Student loans.** Educational loans are generally assigned to the
+  party who received the education (Fam. Code, § 2627).
+
+  **Creditors are not bound.** A creditor can still collect a joint
+  debt from either party. The agreement's {hold harmless} clause gives
+  the paying party a right to reimbursement from the other.
+---
+id: debt item
+section: rev_property
+question: |
+  Debt ${ '#' + str(i + 1) if i else '' }
+fields:
+  - Creditor: debts[i].description
+    grid: 6
+  - Type: debts[i].debt_type
+    input type: dropdown
+    choices:
+      - Credit card: credit_card
+      - Personal or signature loan: personal
+      - Student loan: student
+      - Medical: medical
+      - Tax: tax
+      - Vehicle lease: lease
+      - Loan from family or friend: family
+      - Other: other
+    grid: 6
+  - Last 4 digits: debts[i].last4
+    required: False
+    maxlength: 4
+    grid: 4
+  - Balance: debts[i].value
+    datatype: currency
+    min: 0
+    grid: 8
+  - Character: debts[i].character
+    input type: radio
+    choices:
+      - Community debt: community
+      - ${ petitioner }'s separate debt: sp_pet
+      - ${ respondent }'s separate debt: sp_resp
+    default: community
+  - Assigned to: debts[i].assigned_to
+    input type: radio
+    choices:
+      - ${ petitioner }: pet
+      - ${ respondent }: resp
+      - Paid equally by both: split
+    show if:
+      variable: debts[i].character
+      is: community
+---
+id: debt complete
+code: |
+  debts[i].description
+  debts[i].complete = True
+---
+id: another debt
+section: rev_property
+question: Is there another debt?
+subquestion: |
+  So far: ${ comma_and_list([d.description for d in debts.complete_elements()]) }.
+yesno: debts.there_is_another
+---
+id: reimbursement waivers
+section: rev_property
+question: Reimbursement claims
+subquestion: |
+  After separation, parties often pay community bills with their own
+  money or have exclusive use of community property. Most MSAs
+  resolve these claims with a mutual waiver as part of the overall
+  deal. Check each claim the parties are **waiving**.
+fields:
+  - The parties mutually waive: reimbursement_waivers
+    datatype: checkboxes
+    choices:
+      - "{Epstein credits} (post-separation payments of community debts)": epstein
+      - "{Watts charges} (exclusive use of community property after separation)": watts
+      - "{Section 2640 reimbursement} (separate-property contributions to community property)": s2640
+      - Other reimbursement claims, including for separate funds used for the community and community funds used for a party's separate property: other
+    none of the above: Waive none of these
+  - Claims that are NOT waived and how they are resolved: reimbursement_exceptions
+    input type: area
+    required: False
+    hint: e.g., Respondent receives a $12,000 Section 2640 reimbursement, added to the equalizing payment.
+help: |
+  A waiver of Section 2640 reimbursement must be in writing
+  (Fam. Code, § 2640(b)). Any reimbursement that is *not* waived
+  should be quantified and included in the equalizing payment.
+---
+id: property summary
+section: rev_property
+question: Property and debt summary
+subquestion: |
+  Click **Edit** to change an item, or add one. Values are net of
+  loans; only community interests count toward the equal division.
+
+  % for grp_label, grp_list in (('Real estate', real_property), ('Vehicles', vehicles), ('Financial accounts', accounts), ('Retirement plans', retirement_plans), ('Business interests', businesses), ('Other assets', other_assets), ('Debts', debts)):
+  % if len(grp_list):
+  <h3 class="h6 mt-3">${ grp_label }</h3>
+
+  ${ grp_list.table }
+
+  % endif
+  % endfor
+
+  <div class="btn-group flex-wrap mb-3">
+  ${ real_property.add_action(label='Add real estate') }
+  ${ vehicles.add_action(label='Add vehicle') }
+  ${ accounts.add_action(label='Add account') }
+  ${ retirement_plans.add_action(label='Add retirement plan') }
+  ${ businesses.add_action(label='Add business') }
+  ${ other_assets.add_action(label='Add other asset') }
+  ${ debts.add_action(label='Add debt') }
+  </div>
+
+  <h3 class="h5">Equal division (Fam. Code, § 2550)</h3>
+
+  <table class="table table-sm cph-money">
+  <tr><th></th><th class="amt">${ petitioner.ref }</th><th class="amt">${ respondent.ref }</th></tr>
+  <tr><td>Community assets received</td><td class="amt">${ currency(eq['pet_assets']) }</td><td class="amt">${ currency(eq['resp_assets']) }</td></tr>
+  <tr><td>Community debts assumed</td><td class="amt">(${ currency(eq['pet_debts']) })</td><td class="amt">(${ currency(eq['resp_debts']) })</td></tr>
+  <tr class="total"><td>Net community received</td><td class="amt">${ currency(eq['pet_net']) }</td><td class="amt">${ currency(eq['resp_net']) }</td></tr>
+  </table>
+
+  % if eq['payor']:
+  <div class="cph-callout">
+  To equalize, **${ party_obj[eq['payor']].ref } owes
+  ${ party_obj[eq['payee']].ref } ${ currency(eq['payment']) }**.
+  Items divided equally in kind (${ currency(eq['split_assets'] - eq['split_debts']) }
+  net) do not affect the payment.
+  </div>
+  % else:
+  <div class="cph-tip">The division is already equal. No equalizing payment is needed.</div>
+  % endif
+continue button field: property_summary_reviewed
+help: |
+  **Equalizing payment.** Each party must receive one-half of the
+  net community estate unless the parties agree otherwise in writing
+  (Fam. Code, § 2550). The payment is half the difference between
+  the net community each party receives.
+
+  **Separate property** is confirmed to its owner and does not count.
+  For mixed items, only the community portion counts.
+---
+id: real property table
+table: real_property.table
+rows: real_property
+columns:
+  - Property: |
+      row_item.description.splitlines()[0]
+  - Equity: |
+      currency(row_item.net_value())
+  - Character: |
+      row_item.character_label()
+  - To: |
+      'Sell' if not row_item.is_separate() and row_item.disposition == 'sell' else party_ref[row_item.allocation()]
+edit:
+  - description
+delete buttons: True
+---
+id: vehicles table
+table: vehicles.table
+rows: vehicles
+columns:
+  - Vehicle: |
+      row_item.description
+  - Equity: |
+      currency(row_item.net_value())
+  - Character: |
+      row_item.character_label()
+  - To: |
+      party_ref[row_item.allocation()]
+edit:
+  - description
+delete buttons: True
+---
+id: accounts table
+table: accounts.table
+rows: accounts
+columns:
+  - Account: |
+      row_item.description + (' x' + row_item.last4 if row_item.last4 else '')
+  - Value: |
+      currency(row_item.value)
+  - Character: |
+      row_item.character_label()
+  - To: |
+      party_ref[row_item.allocation()]
+edit:
+  - description
+delete buttons: True
+---
+id: retirement table
+table: retirement_plans.table
+rows: retirement_plans
+columns:
+  - Plan: |
+      row_item.description
+  - Participant: |
+      party_ref[row_item.participant]
+  - Character: |
+      row_item.character_label()
+  - Division: |
+      'QDRO, equal' if row_item.allocation() == 'split' else party_ref[row_item.allocation()]
+edit:
+  - description
+delete buttons: True
+---
+id: businesses table
+table: businesses.table
+rows: businesses
+columns:
+  - Business: |
+      row_item.description
+  - Value: |
+      currency(row_item.value)
+  - Character: |
+      row_item.character_label()
+  - To: |
+      party_ref[row_item.allocation()]
+edit:
+  - description
+delete buttons: True
+---
+id: other assets table
+table: other_assets.table
+rows: other_assets
+columns:
+  - Asset: |
+      row_item.description.splitlines()[0]
+  - Value: |
+      currency(row_item.value)
+  - Character: |
+      row_item.character_label()
+  - To: |
+      party_ref[row_item.allocation()]
+edit:
+  - description
+delete buttons: True
+---
+id: debts table
+table: debts.table
+rows: debts
+columns:
+  - Creditor: |
+      row_item.description + (' x' + row_item.last4 if row_item.last4 else '')
+  - Balance: |
+      currency(row_item.value)
+  - Character: |
+      row_item.character_label()
+  - Paid by: |
+      party_ref[row_item.allocation()]
+edit:
+  - description
+delete buttons: True
+---
+id: equalization approach
+section: rev_property
+question: Equalizing payment
+subquestion: |
+  Based on the values entered, ${ party_obj[eq['payor']].ref } would
+  owe ${ party_obj[eq['payee']].ref } an {equalizing payment} of
+  **${ currency(eq['payment']) }**.
+fields:
+  - The parties agree to: eq_approach
+    input type: radio
+    choices:
+      - Pay the calculated amount (${ currency(eq['payment']) }): pay
+      - Pay a different negotiated amount: custom
+      - Waive the equalizing payment (knowingly accept an unequal division): waive
+  - Agreed amount: eq_custom_amount
+    datatype: currency
+    min: 0
+    show if:
+      variable: eq_approach
+      is: custom
+  - Paid by: eq_custom_payor
+    input type: radio
+    choices:
+      - ${ petitioner }: pet
+      - ${ respondent }: resp
+    default: ${ eq['payor'] }
+    show if:
+      variable: eq_approach
+      is: custom
+  - Why are the parties agreeing to a different amount?: eq_custom_reason
+    input type: area
+    required: False
+    js show if: |
+      val("eq_approach") == "custom" || val("eq_approach") == "waive"
+    hint: e.g., in exchange for Respondent's waiver of spousal support
+help: |
+  Parties may agree to an unequal division in writing (Fam. Code,
+  § 2550). State the reason: a recited trade-off (for example, a
+  larger property share in exchange for a support waiver) makes the
+  agreement harder to attack later as unconscionable or as the
+  product of undue influence.
+---
+id: equalization final values
+reconsider: True
+code: |
+  if eq.get('payment', 0) <= 0 or eq_approach == 'waive':
+    eq_amount = 0
+    eq_payor = None
+  elif eq_approach == 'custom':
+    eq_amount = eq_custom_amount
+    eq_payor = eq_custom_payor
+  else:
+    eq_amount = eq['payment']
+    eq_payor = eq['payor']
+  eq_payee = {'pet': 'resp', 'resp': 'pet'}.get(eq_payor)
+  if eq.get('payment', 0) <= 0:
+    eq_mode = 'equal'
+  else:
+    eq_mode = eq_approach
+---
+id: equalization payment terms
+section: rev_property
+question: How will the equalizing payment be made?
+fields:
+  - Payment method: eq_payment_method
+    input type: radio
+    choices:
+      - Lump sum: lump
+      - From the sale or refinance proceeds of the real property: proceeds
+      - Installments: installments
+  - Due within (days after the agreement is signed): eq_due_days
+    datatype: integer
+    min: 1
+    default: 30
+    show if:
+      variable: eq_payment_method
+      is: lump
+  - Installment terms: eq_installments
+    input type: area
+    show if:
+      variable: eq_payment_method
+      is: installments
+    hint: e.g., $1,000 per month starting January 1, 2027, with 5% simple interest, secured by a deed of trust on the residence.
+  - Interest on late payment: eq_interest
+    datatype: yesnoradio
+    default: True
+    help: |
+      Unpaid amounts accrue interest at the legal rate on judgments
+      (10% per year, Code Civ. Proc., § 685.010) once the agreement
+      is merged into a judgment.
+help: |
+  If the payment is deferred, secure it: a deed of trust on real
+  property, a lien on a retirement account by QDRO, or a
+  non-dischargeable note. Note that an equalizing payment owed to a
+  former spouse is not dischargeable in a chapter 7 bankruptcy
+  (11 U.S.C. § 523(a)(15)).
+---
+id: rev property
+event: rev_property
+section: rev_property
+question: Review property and debts
+review:
+  - Edit: property_summary_reviewed
+    button: |
+      **Assets and debts:** ${ len(real_property) + len(vehicles) + len(accounts) + len(retirement_plans) + len(businesses) + len(other_assets) } assets, ${ len(debts) } debts
+  - Edit: household_goods
+    button: |
+      **Household goods:** ${ 'each keeps what they have' if household_goods == 'possession' else 'per list' }
+  - Edit: reimbursement_waivers
+    button: |
+      **Reimbursement waivers:** ${ comma_and_list(reimbursement_waivers.true_values()) or 'none' }
+  - Edit: eq_approach
+    button: |
+      **Equalization:** ${ currency(eq_amount) } ${ 'from ' + party_obj[eq_payor].ref if eq_payor else '' }
+  - Edit: eq_payment_method
+    button: |
+      **Payment method:** ${ eq_payment_method }

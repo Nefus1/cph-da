@@ -1,0 +1,611 @@
+---
+metadata:
+  title: California Marital Settlement Agreement
+  short title: CA MSA
+  description: |
+    Drafts a California marital settlement agreement (or domestic
+    partnership settlement agreement) covering custody, child and
+    spousal support, division of community property and debts,
+    disclosures and judgment terms, plus an attorney drafting memo.
+  authors:
+    - name: CPH
+  revision_date: 2026-10-20
+  tags:
+    - family law
+    - California
+    - settlement
+---
+include:
+  - cph_shared.yml
+  - ca_msa_glossary.yml
+  - ca_msa_children_support.yml
+  - ca_msa_property.yml
+  - ca_msa_terms.yml
+  - ca_msa_documents.yml
+---
+modules:
+  - .msa_util
+---
+features:
+  navigation: True
+  small screen navigation: dropdown
+  progress bar: True
+  show progress bar percentage: True
+  question help button: True
+  labels above fields: True
+  tagged pdf: True
+---
+sections:
+  - intro_sec: Getting started
+  - rev_case: Case & parties
+  - rev_children: Children
+  - rev_spousal: Spousal support
+  - rev_property: Property & debts
+  - rev_other: Other terms
+  - rev_disclosures: Disclosures & signing
+  - finish_sec: Review & documents
+---
+objects:
+  - petitioner: Individual
+  - respondent: Individual
+  - preparer: Individual
+  - children: DAList.using(object_type=Individual, there_are_any=True, complete_attribute='complete')
+  - real_property: DAList.using(object_type=RealProperty, complete_attribute='complete')
+  - vehicles: DAList.using(object_type=Vehicle, complete_attribute='complete')
+  - accounts: DAList.using(object_type=FinancialAccount, complete_attribute='complete')
+  - retirement_plans: DAList.using(object_type=RetirementPlan, complete_attribute='complete')
+  - businesses: DAList.using(object_type=BusinessInterest, complete_attribute='complete')
+  - other_assets: DAList.using(object_type=OtherAsset, complete_attribute='complete')
+  - debts: DAList.using(object_type=Debt, complete_attribute='complete')
+  - sec: SectionCounter
+---
+id: interview order
+mandatory: True
+code: |
+  menu_items = [action_menu_item('Review answers', 'review_all_event')]
+  intro_seen
+  preparer_role
+  if preparer_is_attorney:
+    preparer_sbn
+  relationship_type
+  proceeding_type
+  case_county
+  doc_format
+  petitioner.name.first
+  respondent.name.first
+  party_reference
+  marriage_date
+  pet_has_counsel
+  translation_needed
+  case_reviewed
+  # Children
+  has_minor_children
+  if has_minor_children:
+    children.gather()
+    legal_custody
+    parenting_schedule
+    holiday_plan
+    right_first_refusal
+    public_assistance
+    cs_amount
+    if cs_deviates:
+      cs_deviation_ack
+    addon_split
+    if cs_payor != 'none':
+      wage_assignment
+  else:
+    pregnancy
+  children_reviewed
+  # Spousal support
+  ss_type
+  if ss_type == 'pay':
+    ss_end_type
+    ss_modifiable
+    wage_assignment
+  if ss_type == 'waive':
+    ss_waiver_ack
+  support_arrears
+  spousal_reviewed
+  # Property and debts
+  real_property.gather()
+  vehicles.gather()
+  accounts.gather()
+  retirement_plans.gather()
+  businesses.gather()
+  other_assets.gather()
+  household_goods
+  debts.gather()
+  reimbursement_waivers
+  property_summary_reviewed
+  if eq.get('payment', 0) > 0:
+    eq_approach
+    if eq_approach != 'waive':
+      eq_payment_method
+  # Other terms
+  tax_filing_current
+  atty_fees
+  pet_restore_name
+  spouse_coverage
+  dispute_resolution
+  additional_terms
+  other_reviewed
+  # Disclosures and execution
+  pet_prelim_served
+  final_disclosures
+  notarize
+  disclosures_reviewed
+  review_done
+  final_screen
+---
+id: preparer is attorney
+code: |
+  preparer_is_attorney = preparer_role in ('atty_pet', 'atty_resp')
+---
+id: party references
+reconsider: True
+code: |
+  if party_reference == 'first':
+    petitioner.ref = petitioner.name.first
+    respondent.ref = respondent.name.first
+  elif party_reference == 'custom':
+    petitioner.ref = pet_custom_ref
+    respondent.ref = resp_custom_ref
+  else:
+    petitioner.ref = 'Petitioner'
+    respondent.ref = 'Respondent'
+  party_ref = {'pet': petitioner.ref, 'resp': respondent.ref, 'split': 'the parties equally'}
+  party_obj = {'pet': petitioner, 'resp': respondent}
+---
+id: relationship words
+reconsider: True
+code: |
+  if relationship_type == 'rdp':
+    spouse_word = 'domestic partner'
+    spouses_word = 'domestic partners'
+    marriage_word = 'domestic partnership'
+    agreement_title = 'DOMESTIC PARTNERSHIP SETTLEMENT AGREEMENT'
+  else:
+    spouse_word = 'spouse'
+    spouses_word = 'spouses'
+    marriage_word = 'marriage'
+    agreement_title = 'MARITAL SETTLEMENT AGREEMENT'
+  proceeding_words = {
+    'dissolution': 'dissolution of ' + marriage_word,
+    'legal_separation': 'legal separation',
+    'nullity': 'judgment of nullity of ' + marriage_word,
+  }[proceeding_type]
+---
+id: marriage length
+reconsider: True
+code: |
+  marriage_years, marriage_months = marriage_length(marriage_date, separation_date)
+  marriage_length_words = marriage_length_text(marriage_date, separation_date)
+  long_duration = marriage_years >= 10
+---
+id: intro
+section: intro_sec
+question: California Marital Settlement Agreement
+subquestion: |
+  This interview builds a complete **marital settlement agreement**
+  (MSA), or a **domestic partnership settlement agreement**, for a
+  California dissolution, legal separation, or nullity case. It also
+  produces a **drafting memo** that flags open issues, statutory
+  requirements, and items to verify before signing.
+
+  <div class="cph-callout">
+  <strong>What you will need</strong>
+  <ul>
+  <li>Dates of marriage (or registration) and separation</li>
+  <li>Children's names and birthdates, and the parenting plan the parties agreed to</li>
+  <li>A guideline child support calculation (DissoMaster, XSpouse, or the
+  <a href="https://childsupport.ca.gov/guideline-calculator/" target="_blank">state calculator</a>, opens in a new tab)</li>
+  <li>Values and balances for real estate, vehicles, accounts, retirement plans, businesses, and debts</li>
+  <li>The status of each party's Declarations of Disclosure (FL-140)</li>
+  </ul>
+  </div>
+
+  Use the **Help** button on any screen for practice notes and the
+  governing Family Code sections. Underlined words show a definition
+  when clicked. You can jump between sections you have already
+  visited with the navigation bar, and choose **Review answers** from
+  the menu at any time.
+
+  <div class="cph-warning">
+  This tool assembles a draft for review by a California-licensed
+  attorney. It does not give legal advice and does not replace
+  independent review of the facts, the current law, and local rules.
+  </div>
+continue button field: intro_seen
+continue button label: Get started
+help:
+  label: About this tool
+  content: |
+    **How the agreement is built**
+
+    Every answer either selects a clause, fills a blank, or adds an
+    item to a schedule. Clauses that do not apply drop out and the
+    articles renumber automatically.
+
+    **When to use this agreement**
+
+    * Contested cases that settled, where the agreement is attached to
+      the Judgment (FL-180) as an attachment, or
+    * Default or uncontested cases where the parties signed a written
+      agreement (the respondent's notarized signature is required on
+      a default with agreement; see the FL-180 instructions and the
+      Judgment Checklist, FL-182).
+
+    If the parties qualify for **summary dissolution** (Fam. Code,
+    § 2400: under 5 years married, no children, limited property and
+    debts), the Judicial Council summary dissolution forms (FL-800
+    series) may be a better fit.
+---
+id: preparer role
+section: intro_sec
+question: Who is preparing this agreement?
+subquestion: |
+  The answer controls the signature blocks and the way practice
+  notes are phrased. It does not change who the parties are.
+field: preparer_role
+choices:
+  - Attorney for the Petitioner: atty_pet
+  - Attorney for the Respondent: atty_resp
+  - Mediator (neutral): mediator
+  - Paralegal or staff, for attorney review: staff
+help: |
+  **Mediators.** A mediator who drafts the agreement remains a
+  neutral. The memo will recommend that each party be advised to
+  consult independent counsel before signing, and the agreement
+  will include an acknowledgment of that advice.
+
+  **Unrepresented parties.** If one side has no lawyer, the
+  agreement includes a clause confirming that the unrepresented
+  party was told to get independent advice and chose not to, or had
+  the chance to. California courts look closely at agreements signed
+  by unrepresented spouses where the other spouse had counsel
+  (Fam. Code, § 721 fiduciary duties; § 2122 set-aside grounds).
+---
+id: preparer information
+section: intro_sec
+question: Your information
+subquestion: |
+  This appears in the caption and in the "approved as to form"
+  signature block.
+fields:
+  - First name: preparer.name.first
+    grid: 4
+  - Middle: preparer.name.middle
+    required: False
+    grid: 2
+  - Last name: preparer.name.last
+    grid: 6
+  - State Bar number: preparer_sbn
+    grid: 4
+    validate: is_bar_number
+  - Firm: preparer_firm
+    required: False
+    grid: 8
+  - Street address: preparer.address.address
+  - City: preparer.address.city
+    grid: 6
+  - State: preparer.address.state
+    code: states_list()
+    default: CA
+    grid: 2
+  - ZIP: preparer.address.zip
+    grid: 4
+  - Phone: preparer.phone_number
+    grid: 6
+  - Email: preparer.email
+    datatype: email
+    grid: 6
+---
+id: relationship and proceeding
+section: rev_case
+question: What kind of case is this?
+fields:
+  - The parties are: relationship_type
+    input type: radio
+    choices:
+      - Married spouses: marriage
+      - Registered domestic partners: rdp
+    help: |
+      Registered domestic partners have the same rights and duties as
+      spouses for property, support, and custody (Fam. Code,
+      § 297.5). Choosing domestic partners changes "marriage" to
+      "domestic partnership" and "spouse" to "partner" throughout.
+  - The case asks for: proceeding_type
+    input type: radio
+    choices:
+      - Dissolution (divorce): dissolution
+      - Legal separation: legal_separation
+      - Nullity (annulment): nullity
+    help: |
+      A **legal separation** divides property and sets support but
+      leaves the parties married. Both parties must consent, or the
+      respondent must fail to appear (Fam. Code, § 2345).
+      A **nullity** requires a ground under Fam. Code, §§ 2200–2210;
+      the court must still find the ground even if the parties agree.
+help: |
+  **Waiting period.** Marital status for a dissolution cannot end
+  earlier than six months after the respondent was served or
+  appeared (Fam. Code, § 2339). The agreement can be signed any
+  time, but the status termination date in the judgment cannot be
+  earlier than that date.
+---
+id: court information
+section: rev_case
+question: Court and case information
+fields:
+  - County of the Superior Court: case_county
+    code: CA_COUNTIES
+    input type: combobox
+    default: Los Angeles
+  - Has the petition been filed?: case_filed
+    datatype: yesnoradio
+  - Case number: case_number
+    show if: case_filed
+    hint: e.g., 25STFL01234
+  - Date the respondent was served or appeared: service_date
+    datatype: date
+    required: False
+    show if: case_filed
+    under text: |
+      Optional. Used to calculate the earliest status termination date.
+    max: ${ today().format('yyyy-MM-dd') }
+help: |
+  **Los Angeles.** LASC family cases are filed at the Stanley Mosk
+  Courthouse or a district courthouse. Judgment packets are reviewed
+  by the family law clerk; use LASC local form checklists for the
+  Judgment packet.
+
+  **Agreement before filing.** You can sign an MSA before the
+  petition is filed. Leave the case number blank and the caption
+  will read "Case No.: (to be assigned)".
+---
+id: document format
+section: rev_case
+question: How will the agreement be used?
+field: doc_format
+choices:
+  - Stand-alone agreement signed by the parties, later attached to the Judgment (FL-180): standalone
+  - Captioned stipulated judgment attachment (caption with court and case number): attachment
+help: |
+  Most practitioners prepare a **stand-alone MSA**, have it signed,
+  and then attach it to the Judgment (FL-180), checking item 4.m
+  ("Other: The parties' written agreement is attached").
+
+  The **captioned** format adds the attorney header and the court
+  caption so the agreement can be filed as an attachment to the
+  judgment. It is set in Times New Roman 12 point without line
+  numbers, for use on your own pleading paper.
+---
+id: petitioner name
+section: rev_case
+question: Who is the Petitioner?
+subquestion: |
+  The **Petitioner** is the party who filed (or will file) the
+  petition.
+fields:
+  - First name: petitioner.name.first
+    grid: 4
+  - Middle name: petitioner.name.middle
+    required: False
+    grid: 3
+  - Last name: petitioner.name.last
+    grid: 5
+  - Suffix: petitioner.name.suffix
+    required: False
+    code: name_suffix()
+    grid: 3
+help: |
+  Use the party's full legal name as it appears (or will appear) on
+  the petition. A former name to be restored is asked for later.
+---
+id: respondent name
+section: rev_case
+question: Who is the Respondent?
+fields:
+  - First name: respondent.name.first
+    grid: 4
+  - Middle name: respondent.name.middle
+    required: False
+    grid: 3
+  - Last name: respondent.name.last
+    grid: 5
+  - Suffix: respondent.name.suffix
+    required: False
+    code: name_suffix()
+    grid: 3
+---
+id: party reference
+section: rev_case
+question: How should the agreement refer to the parties?
+fields:
+  - Refer to the parties as: party_reference
+    input type: radio
+    choices:
+      - "\"Petitioner\" and \"Respondent\"": roles
+      - "First names (\"${ petitioner.name.first }\" and \"${ respondent.name.first }\")": first
+      - Custom labels: custom
+  - Label for ${ petitioner }: pet_custom_ref
+    show if:
+      variable: party_reference
+      is: custom
+    hint: e.g., Husband, Wife, Mother, Father
+  - Label for ${ respondent }: resp_custom_ref
+    show if:
+      variable: party_reference
+      is: custom
+help: |
+  "Petitioner" and "Respondent" are the most neutral and match the
+  Judicial Council forms. First names read more naturally in a
+  parenting plan. Gendered labels ("Husband", "Wife") are common in
+  older agreements but are avoided in current practice.
+---
+id: dates of marriage and separation
+section: rev_case
+question: Key dates
+subquestion: |
+  The {date of separation} ends the {community property} period:
+  earnings and acquisitions after it are generally separate property.
+fields:
+  - Date of ${ 'registration' if relationship_type == 'rdp' else 'marriage' }: marriage_date
+    datatype: date
+    max: ${ today().format('yyyy-MM-dd') }
+  - Date of separation: separation_date
+    datatype: date
+    max: ${ today().format('yyyy-MM-dd') }
+  - Is the date of separation disputed or a compromise?: dos_compromise
+    datatype: yesnoradio
+    help: |
+      If the parties disagree, the agreement can state that the date
+      is stipulated "for all purposes" as part of the overall
+      settlement, which keeps either party from relitigating it.
+validation code: |
+  if separation_date <= marriage_date:
+    validation_error("The date of separation must be after the date of " + ('registration' if relationship_type == 'rdp' else 'marriage') + ".", field="separation_date")
+help: |
+  **Fam. Code, § 70.** The date of separation is when a complete and
+  final break in the marital relationship occurred: one spouse
+  expressed to the other the intent to end the marriage, *and* that
+  spouse's conduct was consistent with that intent. Courts consider
+  all relevant evidence. Living under the same roof does not by
+  itself prevent separation.
+
+  **Why it matters.**
+
+  * Duration of the marriage for spousal support. A marriage of
+    10 years or more is presumed {long duration} and the court keeps
+    jurisdiction over support indefinitely (Fam. Code, § 4336).
+  * Time-rule fraction for pensions ({In re Marriage of Brown}).
+  * Characterization of earnings, 401(k) contributions, and debts.
+---
+id: counsel
+section: rev_case
+question: Are the parties represented by attorneys?
+fields:
+  - Does ${ petitioner } have an attorney?: pet_has_counsel
+    datatype: yesnoradio
+    default: ${ preparer_role == 'atty_pet' }
+  - Petitioner's attorney name: pet_counsel_name
+    show if: pet_has_counsel
+    default: ${ preparer.name.full() if preparer_role == 'atty_pet' else '' }
+    grid: 6
+  - State Bar no.: pet_counsel_sbn
+    show if: pet_has_counsel
+    default: ${ preparer_sbn if preparer_role == 'atty_pet' else '' }
+    grid: 3
+  - Firm: pet_counsel_firm
+    show if: pet_has_counsel
+    required: False
+    default: ${ preparer_firm if preparer_role == 'atty_pet' else '' }
+  - Does ${ respondent } have an attorney?: resp_has_counsel
+    datatype: yesnoradio
+    default: ${ preparer_role == 'atty_resp' }
+  - Respondent's attorney name: resp_counsel_name
+    show if: resp_has_counsel
+    default: ${ preparer.name.full() if preparer_role == 'atty_resp' else '' }
+    grid: 6
+  - State Bar no.: resp_counsel_sbn
+    show if: resp_has_counsel
+    default: ${ preparer_sbn if preparer_role == 'atty_resp' else '' }
+    grid: 3
+  - Firm: resp_counsel_firm
+    show if: resp_has_counsel
+    required: False
+    default: ${ preparer_firm if preparer_role == 'atty_resp' else '' }
+help: |
+  When a party has counsel, the agreement adds an "Approved as to
+  form" signature line for that attorney and a recital that the
+  party was advised by counsel.
+
+  When a party is **unrepresented**, the agreement recites that the
+  party was advised to obtain independent counsel and either did so
+  or chose not to. This protects the agreement against a later
+  claim of undue influence; spouses owe each other fiduciary
+  duties in transactions between them (Fam. Code, § 721), and an
+  advantage obtained by one spouse can raise a presumption of
+  undue influence.
+---
+id: translation
+section: rev_case
+question: Language
+fields:
+  - Will either party read the agreement in a language other than English, or have it translated?: translation_needed
+    datatype: yesnoradio
+  - Language: translation_language
+    show if: translation_needed
+    default: Spanish
+  - Name of the translator or interpreter: translator_name
+    show if: translation_needed
+    required: False
+help: |
+  If a party is not fluent in English, best practice is to have the
+  agreement translated or interpreted before signing and to include
+  a translator's declaration. The agreement will add a recital that
+  it was translated, which helps rebut a later claim that the party
+  did not understand what they signed (Fam. Code, § 2122(c)
+  allows a set-aside for mistake).
+---
+id: case section review screen
+section: rev_case
+question: Case and parties
+subquestion: |
+  Check the details below. Click any item to change it.
+
+  <table class="table table-sm cph-summary">
+  <tr><th>Case</th><td>${ proceeding_words.capitalize() }, ${ case_county } County${ ', Case No. ' + case_number if case_filed else ' (not yet filed)' }</td></tr>
+  <tr><th>Petitioner</th><td>${ petitioner } ("${ petitioner.ref }")${ ', represented by ' + pet_counsel_name if pet_has_counsel else ', self-represented' }</td></tr>
+  <tr><th>Respondent</th><td>${ respondent } ("${ respondent.ref }")${ ', represented by ' + resp_counsel_name if resp_has_counsel else ', self-represented' }</td></tr>
+  <tr><th>Dates</th><td>${ 'Registered' if relationship_type == 'rdp' else 'Married' } ${ format_date(marriage_date) }; separated ${ format_date(separation_date) } (${ marriage_length_words })</td></tr>
+  </table>
+
+  % if long_duration:
+  <div class="cph-callout">
+  <strong>Long-duration ${ marriage_word }.</strong> At ${ marriage_length_words },
+  this ${ marriage_word } is presumed to be of long duration (Fam. Code, § 4336).
+  Unless the parties agree otherwise in writing, the court keeps jurisdiction
+  over spousal support indefinitely.
+  </div>
+  % endif
+continue button field: case_reviewed
+---
+id: rev case
+event: rev_case
+section: rev_case
+question: Review case and parties
+review:
+  - Edit: preparer_role
+    button: |
+      **Prepared by:** ${ preparer_role_label(preparer_role) }
+  - Edit: preparer.name.first
+    button: |
+      **Your information:** ${ preparer }, SBN ${ preparer_sbn }
+  - Edit: relationship_type
+    button: |
+      **Case type:** ${ proceeding_words }
+  - Edit: case_county
+    button: |
+      **Court:** ${ case_county } County${ ', Case No. ' + case_number if case_filed else '' }
+  - Edit: doc_format
+    button: |
+      **Format:** ${ 'Stand-alone agreement' if doc_format == 'standalone' else 'Captioned attachment' }
+  - Edit: petitioner.name.first
+    button: |
+      **Petitioner:** ${ petitioner }
+  - Edit: respondent.name.first
+    button: |
+      **Respondent:** ${ respondent }
+  - Edit: party_reference
+    button: |
+      **Referred to as:** "${ petitioner.ref }" and "${ respondent.ref }"
+  - Edit: marriage_date
+    button: |
+      **Dates:** ${ format_date(marriage_date) } to ${ format_date(separation_date) } (${ marriage_length_words })
+  - Edit: pet_has_counsel
+    button: |
+      **Counsel:** Petitioner ${ pet_counsel_name if pet_has_counsel else 'self-represented' }; Respondent ${ resp_counsel_name if resp_has_counsel else 'self-represented' }
+  - Edit: translation_needed
+    button: |
+      **Translation:** ${ translation_language if translation_needed else 'Not needed' }

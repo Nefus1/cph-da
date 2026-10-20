@@ -1,0 +1,9 @@
+# Tools for testing the interviews offline (not needed on the docassemble server).
+pytest
+pyyaml
+jinja2
+mako
+python-dateutil
+python-docx
+docxtpl
+dayamlchecker

@@ -1,0 +1,49 @@
+---
+metadata:
+  title: CPH Interview Hub
+  short title: CPH Hub
+  description: |
+    Start page listing every CPH document interview.
+---
+include:
+  - cph_shared.yml
+---
+id: catalog
+code: |
+  catalog = [
+    {
+      'title': 'California Marital Settlement Agreement',
+      'file': 'ca_msa.yml',
+      'area': 'Family law',
+      'court': 'California Superior Court',
+      'time': '30 to 60 minutes',
+      'output': 'MSA (Word and PDF) and attorney drafting memo',
+      'summary': 'Custody and parenting plan, guideline and non-guideline child support, spousal support, division of community property and debts with an automatic equalization calculation, disclosures, and judgment terms. Works for married spouses and registered domestic partners.',
+    },
+  ]
+---
+id: hub
+mandatory: True
+question: CPH Interview Hub
+subquestion: |
+  Choose an interview to start a new matter. Each interview saves
+  your progress; return to it from **My interviews** in the menu.
+
+  % for entry in catalog:
+  <div class="cph-hub-card">
+  <h3 class="h5">${ entry['title'] }</h3>
+  <p>
+  <span class="cph-badge">${ entry['area'] }</span>
+  <span class="cph-badge">${ entry['court'] }</span>
+  <span class="cph-badge">${ entry['time'] }</span>
+  </p>
+  <p>${ entry['summary'] }</p>
+  <p class="small text-muted">Produces: ${ entry['output'] }</p>
+  <a class="btn btn-primary" href="${ interview_url(i=entry['file'], new_session=1) }">Start</a>
+  </div>
+  % endfor
+
+  <div class="cph-warning">
+  These interviews assemble drafts for review by a California-licensed
+  attorney. They are not legal advice.
+  </div>

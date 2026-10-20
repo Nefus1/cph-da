@@ -1,0 +1,31 @@
+name: Interview checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test tools
+        run: pip install -r requirements-dev.txt
+      - name: Template is up to date with its builder
+        run: |
+          python tools/build_ca_msa_template.py
+          python tests/docx_text.py docassemble/cphda/data/templates/ca_msa.docx > /tmp/built.txt
+          git show HEAD:docassemble/cphda/data/templates/ca_msa.docx > /tmp/committed.docx
+          python tests/docx_text.py /tmp/committed.docx > /tmp/committed.txt
+          diff -u /tmp/committed.txt /tmp/built.txt
+      - name: Lint interview YAML
+        run: |
+          for f in docassemble/cphda/data/questions/*.yml; do
+            dayamlchecker --no-url-check "$f" | grep -v EA510 | tee -a lint.txt
+          done
+          ! grep -q '^ERROR' lint.txt
+      - name: Offline tests
+        run: python -m pytest -q tests
