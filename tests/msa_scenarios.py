@@ -19,21 +19,10 @@ def person(first, last, middle=''):
     return p
 
 
-def item(cls, **attrs):
-    obj = cls()
-    for key, val in attrs.items():
-        setattr(obj, key, val)
-    obj.complete = True
-    return obj
-
-
 def base():
     """Answers shared by every scenario."""
     a = dict(
         intro_seen=True,
-        preparer_role='atty_pet',
-        relationship_type='marriage',
-        proceeding_type='dissolution',
         case_county='Los Angeles',
         case_filed=True,
         case_number='25STFL01234',
@@ -58,9 +47,8 @@ def base():
         pregnancy=False,
         ss_type='reserve',
         support_arrears=False,
-        household_goods='possession',
-        reimbursement_waivers=DADict(epstein=True, watts=True, s2640=False, other=True),
-        reimbursement_exceptions='',
+        assets_status='none',
+        debts_status='none',
         property_summary_reviewed=True,
         tax_filing_current='separate',
         prior_tax_split='responsible',
@@ -72,34 +60,28 @@ def base():
         spouse_coverage=True,
         own_insurance=True,
         dispute_resolution='mediation',
-        merge_judgment='merge',
-        binding_without_judgment=True,
         additional_terms='',
+        fl144_waiver=False,
         pet_prelim_served=True,
         pet_prelim_date=as_date('2026-04-01'),
         resp_prelim_served=True,
         resp_prelim_date=as_date('2026-04-15'),
         final_disclosures='exchanged',
-        ied_exchanged=True,
         notarize=False,
         blank_sign_dates=True,
         review_done=True,
     )
     a['petitioner'] = person('Maria', 'Gomez', 'Elena')
     a['respondent'] = person('David', 'Gomez')
-    prep = person('Dana', 'Lee')
-    prep.address.address = '350 S. Grand Ave., Suite 1200'
-    prep.address.city = 'Los Angeles'
-    prep.address.state = 'CA'
-    prep.address.zip = '90071'
-    prep.phone_number = '(213) 555-0100'
-    prep.email = 'dlee@example.com'
-    a['preparer'] = prep
-    a['preparer_sbn'] = '123456'
-    a['preparer_firm'] = 'CPH Law'
-    for name in ('children', 'real_property', 'vehicles', 'accounts', 'retirement_plans',
-                 'businesses', 'other_assets', 'debts'):
-        a[name] = DAList()
+    contact = person('', '')
+    contact.address.address = '350 S. Grand Ave., Suite 1200'
+    contact.address.city = 'Los Angeles'
+    contact.address.state = 'CA'
+    contact.address.zip = '90071'
+    contact.phone_number = '(213) 555-0100'
+    contact.email = 'dlee@example.com'
+    a['caption_contact'] = contact
+    a['children'] = DAList()
     a['sec'] = m.SectionCounter()
     return a
 
@@ -180,13 +162,21 @@ def full_case():
         ss_life_amount=100000.0,
         ss_cohabitation=True,
         support_arrears=True,
-        arrears_terms='Respondent owes $2,400 in temporary spousal support through September 30, 2026, to be paid from the equalizing payment.',
+        arrears_terms='Respondent owes $2,400 in temporary spousal support through September 30, 2026, to be paid within 60 days.',
         spousal_reviewed=True,
-        eq_approach='pay',
-        eq_payment_method='lump',
-        eq_due_days=30,
-        eq_interest=True,
-        final_disclosures='waived',
+        assets_status='some',
+        pet_property_text=('1. The real property commonly known as 123 Main Street, Los Angeles, CA 90012 (APN 5123-004-012)\n'
+                           '2. 2021 Toyota RAV4 (VIN ending 4821)\n\n'
+                           '- Schwab savings account ending in 2222\n'
+                           'One-half of the Chase checking account ending in 1111\n'
+                           'The family dog, Luna'),
+        resp_property_text=('2019 Ford F-150\n'
+                            'Gomez Landscaping LLC, including its goodwill, assets, and accounts receivable\n'
+                            'All of the community interest in the Acme Corp. 401(k) Plan, subject to a QDRO awarding Petitioner one-half of it.'),
+        debts_status='some',
+        pet_debts_text='Navient student loan\nOne-half of the Discover credit card balance',
+        resp_debts_text='Capital One credit card ending in 9988',
+        fl144_waiver=True,
         notarize=True,
         pet_restore_name=True,
         pet_former_name='Maria Elena Torres',
@@ -195,47 +185,6 @@ def full_case():
         atty_fees_due_days=30,
         additional_terms='Respondent will return the family photo albums within 30 days.\n\nEach party may attend school events.',
     )
-    a['real_property'] = DAList([item(
-        m.RealProperty, description='123 Main Street\nLos Angeles, CA 90012', apn='5123-004-012',
-        vesting='Husband and wife as community property', value=950000.0, encumbrance=520000.0,
-        lenders='Wells Fargo', character='community', disposition='pet', refinance_days=180,
-        refi_fallback='sell', deed_days=30)])
-    a['vehicles'] = DAList([
-        item(m.Vehicle, description='2021 Toyota RAV4', vin_last4='4821', value=24000.0, encumbrance=8000.0,
-             character='community', awarded_to='pet'),
-        item(m.Vehicle, description='2019 Ford F-150', vin_last4='', value=28000.0, encumbrance=0.0,
-             character='community', awarded_to='resp'),
-    ])
-    a['accounts'] = DAList([
-        item(m.FinancialAccount, description='Chase', account_type='checking', last4='1111', value=12000.0,
-             value_date=None, character='community', awarded_to='split'),
-        item(m.FinancialAccount, description='Fidelity', account_type='brokerage', last4='', value=40000.0,
-             value_date=None, character='mixed', community_portion=25000.0, awarded_to='resp'),
-        item(m.FinancialAccount, description='Schwab', account_type='savings', last4='2222', value=15000.0,
-             value_date=None, character='sp_pet'),
-    ])
-    a['retirement_plans'] = DAList([
-        item(m.RetirementPlan, description='Acme Corp. 401(k) Plan', plan_type='dc', participant='resp',
-             character='mixed', value=180000.0, community_portion=150000.0, division='qdro',
-             order_preparer='specialist', order_cost='equal'),
-        item(m.RetirementPlan, description='CalPERS', plan_type='calpers', participant='pet',
-             character='community', value=0.0, division='qdro', order_preparer='pet', order_cost='participant',
-             survivor_benefit=True),
-        item(m.RetirementPlan, description='Vanguard IRA', plan_type='ira', participant='pet',
-             character='community', value=30000.0, division='qdro'),
-    ])
-    a['businesses'] = DAList([item(
-        m.BusinessInterest, description='Gomez Landscaping LLC', entity_type='llc', ownership_pct=100.0,
-        value=60000.0, character='community', awarded_to='resp')])
-    a['other_assets'] = DAList([item(
-        m.OtherAsset, description='Family dog, Luna', value=0.0, character='community', awarded_to='pet')])
-    a['debts'] = DAList([
-        item(m.Debt, description='Capital One', debt_type='credit_card', last4='9988', value=6500.0,
-             character='community', assigned_to='resp'),
-        item(m.Debt, description='Discover', debt_type='credit_card', last4='', value=3000.0,
-             character='community', assigned_to='split'),
-        item(m.Debt, description='Navient', debt_type='student', last4='', value=22000.0, character='sp_pet'),
-    ])
     return a
 
 
@@ -244,7 +193,7 @@ def rdp_sale_waiver():
     a = base()
     a.update(
         relationship_type='rdp',
-        preparer_role='mediator',
+        proceeding_type='dissolution',
         case_filed=False,
         party_reference='first',
         pet_has_counsel=False,
@@ -253,35 +202,23 @@ def rdp_sale_waiver():
         marriage_date=as_date('2021-01-10'),
         ss_type='waive',
         ss_waiver_ack=DADict(permanent=True, no_jurisdiction=True, considered=True, counsel=True),
-        eq_approach='waive',
-        eq_custom_reason='Respondent receives the larger share in exchange for the support waiver',
-        household_goods='list',
-        household_goods_list='To Maria: the piano.\nTo David: the sofa.',
-        reimbursement_waivers=DADict(epstein=False, watts=False, s2640=False, other=False),
-        reimbursement_exceptions='Respondent receives a $5,000 Section 2640 reimbursement.',
+        assets_status='some',
+        pet_property_text='',
+        resp_property_text='9 Ocean View Dr., Long Beach, CA 90802\nBank of America checking account',
+        debts_status='some',
+        pet_debts_text='',
+        resp_debts_text='Amex credit card',
         tax_filing_current='joint_option',
         prior_tax_split='equal',
         dispute_resolution='court',
-        merge_judgment='no_merge',
-        binding_without_judgment=False,
         spouse_coverage=False,
         own_insurance=False,
         final_disclosures='pending',
         resp_prelim_served=False,
-        ied_exchanged=False,
         blank_sign_dates=False,
         resp_restore_name=True,
         resp_former_name='David Chen',
     )
-    a['real_property'] = DAList([item(
-        m.RealProperty, description='9 Ocean View Dr., Long Beach, CA 90802', apn='', vesting='',
-        value=700000.0, encumbrance=400000.0, lenders='', character='community', disposition='sell',
-        list_days=60, agent='joint', occupant='resp', carrying_costs='reimbursed', price_terms='')])
-    a['accounts'] = DAList([item(
-        m.FinancialAccount, description='Bank of America', account_type='checking', last4='', value=30000.0,
-        value_date=None, character='community', awarded_to='resp')])
-    a['debts'] = DAList([item(
-        m.Debt, description='Amex', debt_type='credit_card', last4='', value=2000.0, character='sp_resp')])
     return a
 
 
@@ -292,14 +229,13 @@ def bare_minimum():
         party_reference='custom',
         pet_custom_ref='Wife',
         resp_custom_ref='Husband',
-        preparer_role='atty_resp',
         pet_has_counsel=False,
+        doc_format='attachment',
         filed_joint=False,
         enforcement_fees=False,
         pet_prelim_served=False,
         final_disclosures='pending',
     )
-    a['reimbursement_waivers'] = DADict(epstein=False, watts=False, s2640=False, other=False)
     return a
 
 
@@ -340,18 +276,8 @@ def long_marriage_pay():
         ss_terminate_remarriage=False,
         ss_life_insurance=False,
         ss_stepdown='Beginning November 1, 2028, support reduces to $800 per month.',
-        eq_approach='custom',
-        eq_custom_amount=10000.0,
-        eq_custom_payor='pet',
-        eq_custom_reason='the parties agree to offset the Watts charges',
-        eq_payment_method='installments',
-        eq_installments='$1,000 per month beginning January 1, 2027.',
-        eq_interest=False,
         atty_fees='pet_pays',
     )
-    a['real_property'][0].disposition = 'resp'
-    a['real_property'][0].refinance_days = 0
-    a['real_property'][0].refi_fallback = 'court'
     return a
 
 

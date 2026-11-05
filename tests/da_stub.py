@@ -111,7 +111,8 @@ class Name(DAObject):
 
 
 class Address(DAObject):
-    pass
+    def on_one_line(self):
+        return '%s, %s, %s %s' % (self.address, self.city, self.state, self.zip)
 
 
 class Individual(DAObject):

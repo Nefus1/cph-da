@@ -8,17 +8,19 @@ glossary that assembles a finished Word/PDF document and an attorney drafting me
 | Interview | File | Produces |
 |---|---|---|
 | Hub (start page) | `hub.yml` | Links to every interview |
-| California Marital Settlement Agreement | `ca_msa.yml` | MSA or domestic partnership settlement agreement (DOCX + PDF), drafting memo (PDF + DOCX) |
+| California Marital Settlement Agreement | `ca_msa.yml` | Marital settlement agreement (DOCX + PDF), drafting memo (PDF + DOCX) |
 
 ## California Marital Settlement Agreement
 
-A full MSA questionnaire for dissolution, legal separation, or nullity, for
-spouses or registered domestic partners. It is organized into navigable
-sections, and each one has a review screen:
+An MSA questionnaire for a dissolution of marriage. It is organized into
+navigable sections, and each one has a review screen:
 
-1. **Case and parties.** Preparer role, case type, county and case number,
-   party names and how the agreement refers to them, dates of marriage and
-   separation (Fam. Code § 70), counsel, and translation.
+1. **Case and parties.** County and case number, party names and how the
+   agreement refers to them, dates of marriage and separation (Fam. Code
+   § 70), counsel, and translation. The captioned format takes its
+   attorney header from the Petitioner's counsel (or the Respondent's, or
+   the self-represented Petitioner) and asks only for the address, phone,
+   and email.
 2. **Children.** Children's names and birthdates, legal and physical custody,
    regular schedule (alternating weeks, 2-2-5-5, 2-2-3, alternate weekends,
    supervised, custom, or an attached FL-341), holidays, travel, communication,
@@ -35,25 +37,30 @@ sections, and each one has a review screen:
    modifiability (§ 3591(c)); remarriage (§ 4337); long-duration jurisdiction
    (§ 4336), which the interview detects automatically; cohabitation (§ 4323);
    the Gavron notice; and arrears.
-5. **Property and debts.** Separate schedules for real estate, vehicles,
-   financial accounts, retirement plans, businesses, other assets, and debts.
-   Each item is characterized as community, mixed, or separate. The interview
-   handles buyouts with refinance and deed deadlines, sales with occupancy and
-   carrying costs, and QDRO/IRA division. A live summary computes the
-   **§ 2550 equalizing payment**, which the parties can accept, renegotiate, or
-   waive. Epstein, Watts, and § 2640 waivers are also covered.
+5. **Property and debts.** Laid out like the LASC judgment form
+   (items 501–504): one screen lists the property awarded and confirmed to
+   each party, whether community or separate, and one lists the debts, one
+   item per line. Either screen can instead record "There are no assets (or
+   debts) to be disposed of by the court." The article ends with the
+   omitted-assets (§ 2556), transfer-documents, and characterization (§ 852)
+   paragraphs. The interview does not compute an equal division; put any
+   equalizing payment under additional terms.
 6. **Other terms.** Taxes, attorney's fees, restoration of former names,
    insurance, estate planning (Prob. Code §§ 5600, 6122), dispute resolution,
-   merger into the judgment, CCP § 664.6, and free-form additional provisions.
-7. **Disclosures and signing.** Preliminary and final declarations of
-   disclosure (including the § 2105(d) waiver language and FL-144), notary
-   acknowledgment pages, and signature dates.
+   and free-form additional provisions. The agreement always merges into the
+   judgment, binds the parties when signed, and asks the court to keep
+   jurisdiction under CCP § 664.6.
+7. **Disclosures and signing.** First asks whether a Stipulation and Waiver
+   of Final Declaration of Disclosure (FL-144) is or will be filed. If yes,
+   the agreement recites the § 2105(d) waiver and the disclosure questions
+   are skipped. If no, it asks about each party's preliminary declaration
+   and the final declarations. Then notary acknowledgment pages (with the
+   statutory notice in a bordered box) and signature dates.
 8. **Review and documents.** A final review lists every item that blocks
    judgment. The agreement renumbers its articles automatically as clauses
-   drop in or out. Exhibit A is the schedule of assets, debts, and the equal
-   division. The **drafting memo** lists blocking issues, attorney-review
-   flags, and a filing checklist (FL-191, FL-192, FL-195/FL-435, FL-144, QDROs,
-   deeds, DMV, the § 2339 status date).
+   drop in or out. The **drafting memo** lists blocking issues,
+   attorney-review flags, and a filing checklist (FL-191, FL-192,
+   FL-195/FL-435, FL-144, QDROs, deeds, DMV, the § 2339 status date).
 
 Output follows house style: Times New Roman 12 pt with no line numbers, for use
 on the firm's own pleading paper. The captioned "attachment" format adds the
@@ -63,7 +70,7 @@ attorney header and court caption.
 
 ```
 docassemble/cphda/
-  msa_util.py                  # asset/debt classes, equalization math, section counter
+  msa_util.py                  # list parsing, labels, marriage length, section counter
   data/questions/
     hub.yml                    # start page listing all interviews
     cph_shared.yml             # shared CSS/footer; include first in every interview

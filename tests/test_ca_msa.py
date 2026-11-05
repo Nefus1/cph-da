@@ -35,10 +35,10 @@ FILES = ['ca_msa.yml', 'ca_msa_children_support.yml', 'ca_msa_property.yml',
 
 # Code blocks run in this order, as the interview order would trigger them.
 CODE_ORDER = [
-    'preparer is attorney', 'party references', 'relationship words', 'marriage length',
+    'case type', 'party references', 'relationship words', 'marriage length', 'caption header',
     'child support final values', 'addon percentages', 'spousal summary text',
-    'equalization numbers', 'equalization final values', 'additional terms paragraphs',
-    'filename', 'status date', 'award lists', 'drafting issues',
+    'property lists', 'final disclosure status', 'additional terms paragraphs',
+    'filename', 'status date', 'tax year', 'drafting issues',
 ]
 CHILD_ONLY = {'child support final values', 'addon percentages'}
 NOT_APPLICABLE = (NameError, IndexError, KeyError, AttributeError)
@@ -94,6 +94,8 @@ def run_code(ns):
     for block_id in CODE_ORDER:
         if block_id in CHILD_ONLY and not ns['has_minor_children']:
             continue
+        if block_id == 'case type' and 'relationship_type' in ns:
+            continue  # docassemble runs it only while the variables are undefined
         exec(compile(BY_ID[block_id]['code'], block_id, 'exec'), ns)
     for block in BLOCKS:
         if block.get('template') and 'content' in block:
@@ -147,24 +149,26 @@ def scenario(request):
     return request.param, ns
 
 
-def test_code_blocks_and_equalization(scenario):
+def test_code_blocks(scenario):
     name, ns = scenario
-    eq = ns['eq']
-    assert round(eq['pet_net'] - eq['resp_net'], 2) == round(
-        (2 * eq['payment']) * (1 if eq['payor'] == 'pet' else -1 if eq['payor'] == 'resp' else 0), 2)
     for heading in ('Must be resolved before judgment', 'For attorney review', 'Key terms'):
         assert heading in ns['drafting_memo'], 'memo heading lost (Mako treats ## as a comment)'
     if name == 'full_case':
-        # House equity 430,000 + RAV4 16,000 + dog 0 to Petitioner;
-        # F-150 28,000 + Fidelity community 25,000 + LLC 60,000 - Capital One 6,500 to Respondent.
-        assert eq['pet_net'] == 446000.0
-        assert eq['resp_net'] == 106500.0
-        assert eq['payor'] == 'pet' and eq['payment'] == 169750.0
+        # Typed numbering and bullets are stripped; blank lines are dropped.
+        assert len(ns['pet_property']) == 5
+        assert ns['pet_property'][0].startswith('The real property commonly known as 123 Main Street')
+        assert ns['pet_property'][2] == 'Schwab savings account ending in 2222'
+        assert len(ns['resp_property']) == 3 and len(ns['pet_debts']) == 2
+        assert ns['final_status'] == 'waived'
+        assert any('FL-144' in t for t in ns['issues_todo'])
+        assert not any('preliminary Declaration' in r for r in ns['issues_required'])
+        assert ns['caption_name'] == 'Dana Lee' and ns['caption_for'].startswith('Attorney for Petitioner')
         assert ns['cs_deviates'] and ns['cs_below_guideline']
         assert ns['addon_pet_share'] == 40
         assert ns['long_duration'] is True
     if name == 'rdp_sale_waiver':
-        assert ns['eq_mode'] == 'waive' and ns['eq_payor'] is None
+        assert ns['pet_property'] == [] and len(ns['resp_property']) == 2
+        assert ns['final_status'] == 'pending'
         assert ns['spouse_word'] == 'domestic partner'
         assert any('pregnant' in i for i in ns['issues_required'])
 
@@ -245,18 +249,42 @@ def test_docx_renders(scenario, tmp_path):
         subs = [int(s) for a, s in paras if a == art]
         assert subs == list(range(1, len(subs) + 1)), 'paragraph numbering in article ' + art
     assert ns['agreement_title'] in body
+    for gone in ('Initials', 'Exhibit A', 'EXHIBIT A', 'Equalizing Payment', 'mediator'):
+        assert gone not in full, gone + ' should no longer appear in the agreement'
+    for kept in ('Omitted Assets and Debts.', 'Transfer Documents.', 'Characterization.'):
+        assert kept in body
+    footer = '\n'.join(p.text for s in doc.sections for p in s.footer.paragraphs)
+    assert 'Initials' not in footer
+    if ns['assets_status'] == 'none':
+        assert 'There are no assets to be disposed of by the court.' in body
+        assert 'Property Awarded and Confirmed' not in body
+    if ns['debts_status'] == 'none':
+        assert 'There are no debts to be disposed of by the court.' in body
     if name == 'full_case':
         assert 'CHILD CUSTODY AND PARENTING TIME' in body
         assert 'Family Code section 4065(a)' in body
-        assert 'Interspousal Transfer Grant Deed' in body
+        assert 'Property Awarded and Confirmed to Petitioner. The following property, whether community or separate, is awarded and confirmed to Petitioner as the separate property of Petitioner, along with any and all encumbrances on it, and Petitioner shall hold Respondent harmless from those encumbrances:' in body
+        assert '(1)\tThe real property commonly known as 123 Main Street' in body
+        assert '(5)\tThe family dog, Luna.' in body
+        assert 'shall hold Petitioner harmless from these obligations:' in body
+        assert 'Stipulation and Waiver of Final Declaration of Disclosure (form FL-144)' in body
         assert 'CALIFORNIA ALL-PURPOSE ACKNOWLEDGMENT' in body
+        # The notary disclaimer sits inside a bordered one-cell table.
+        boxed = [t for t in doc.tables if len(t.rows) == 1 and len(t.columns) == 1]
+        assert len(boxed) == 2
+        assert boxed[0].style.name == 'Table Grid'
+        assert boxed[0].cell(0, 0).text.startswith('A notary public or other officer completing this certificate')
         assert 'Case No.: 25STFL01234' in full
+        assert 'Dana Lee (SBN 123456)' in body and 'Attorney for Petitioner Maria E. Gomez' in body
         assert 'Maria Elena Torres' in body
     if name == 'rdp_sale_waiver':
         assert 'CHILD CUSTODY' not in body
         assert 'domestic partnership' in body
         assert 'Mutual Waiver of Support' in body
-        assert 'shall be listed for sale' in body
+        assert 'Property Awarded and Confirmed to Maria.' in body
+        assert '\nNone.\n' in body
+    if name == 'bare_minimum':
+        assert 'Attorney for Respondent' in body
     if name == 'long_marriage_pay':
         assert 'section 3591(c)' in body
         assert 'Family Code section 4336(a)' in body

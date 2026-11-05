@@ -853,7 +853,7 @@ fields:
   - How are they resolved?: arrears_terms
     input type: area
     show if: support_arrears
-    hint: e.g., Respondent owes $4,200 in temporary spousal support arrears through June 30, 2026, which will be deducted from the equalizing payment owed to Respondent.
+    hint: e.g., Respondent owes $4,200 in temporary spousal support arrears through June 30, 2026, which Respondent will pay within 60 days.
 help: |
   Accrued support arrears are vested judgments and cannot be
   retroactively modified (Fam. Code, § 3651(c)), but the parties may

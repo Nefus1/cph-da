@@ -71,16 +71,15 @@ code: |
   _review = []
   _todo = []
   # Disclosures
-  if not pet_prelim_served:
-    _req.append(petitioner.ref + " has not served a preliminary Declaration of Disclosure (Fam. Code, §§ 2104, 2106).")
-  if not resp_prelim_served:
-    _req.append(respondent.ref + " has not served a preliminary Declaration of Disclosure (Fam. Code, §§ 2104, 2106). In a true default only the petitioner's is required (§ 2110).")
-  if final_disclosures == 'pending':
-    _req.append("Final Declarations of Disclosure must be exchanged, or waived on FL-144, before judgment (Fam. Code, § 2105).")
-  if final_disclosures == 'waived':
-    _todo.append("Prepare and have both parties sign the Stipulation and Waiver of Final Declaration of Disclosure (FL-144).")
-  if not ied_exchanged:
-    _review.append("Current Income and Expense Declarations (FL-150) have not been exchanged. They are needed for support terms and for a § 2105(d) waiver.")
+  if fl144_waiver:
+    _todo.append("File the Stipulation and Waiver of Final Declaration of Disclosure (FL-144), signed by both parties, with the judgment packet. Confirm that each party served a preliminary Declaration of Disclosure and a current Income and Expense Declaration (FL-150) before signing it (Fam. Code, § 2105(d)).")
+  else:
+    if not pet_prelim_served:
+      _req.append(petitioner.ref + " has not served a preliminary Declaration of Disclosure (Fam. Code, §§ 2104, 2106).")
+    if not resp_prelim_served:
+      _req.append(respondent.ref + " has not served a preliminary Declaration of Disclosure (Fam. Code, §§ 2104, 2106). In a true default only the petitioner's is required (§ 2110).")
+    if final_disclosures == 'pending':
+      _req.append("Final Declarations of Disclosure must be exchanged, or waived on FL-144, before judgment (Fam. Code, § 2105).")
   # Case and parties
   if not case_filed:
     _todo.append("The case is not yet filed. Insert the case number in the caption after filing.")
@@ -91,8 +90,6 @@ code: |
     _review.append(_unrep + " is unrepresented while the other party has counsel. Confirm the independent-counsel advisement in writing and consider a separate acknowledgment of the support and property terms (Fam. Code, §§ 721, 2122).")
   if not pet_has_counsel and not resp_has_counsel:
     _review.append("Neither party has counsel. Recommend independent review before signing.")
-  if preparer_role == 'mediator':
-    _review.append("Prepared by a mediator. Each party should be advised in writing to have the agreement reviewed by independent counsel.")
   if translation_needed:
     _todo.append("Attach a translator's declaration confirming the agreement was translated into " + translation_language + (" by " + translator_name if translator_name else "") + ".")
   if dos_compromise:
@@ -123,28 +120,10 @@ code: |
   if ss_type == 'waive' and long_duration:
     _review.append("Mutual support waiver in a long-duration " + marriage_word + ". Document the advisement; consider a separate signed acknowledgment.")
   # Property
-  for _p in real_property:
-    if not _p.is_separate():
-      if _p.disposition in ('pet', 'resp'):
-        _todo.append("Calendar the refinance deadline for " + _p.description.splitlines()[0] + " (" + str(_p.refinance_days) + " days after signing) and prepare the Interspousal Transfer Grant Deed.")
-      else:
-        _todo.append("Calendar the listing deadline for " + _p.description.splitlines()[0] + " (" + str(_p.list_days) + " days after signing).")
-      if not _p.apn:
-        _todo.append("Obtain the APN and legal description for " + _p.description.splitlines()[0] + ".")
-    if _p.character == 'mixed':
-      _review.append("Mixed-character real property (" + _p.description.splitlines()[0] + "). Keep the Moore/Marsden or tracing calculation in the file.")
-  for _r in retirement_plans:
-    if not _r.is_separate() and _r.division == 'qdro' and _r.needs_order():
-      _todo.append("Order a QDRO/DRO for " + _r.description + ". Get the plan's model order and consider joinder (Fam. Code, § 2060).")
-    if not _r.is_separate() and _r.division == 'qdro' and not _r.needs_order():
-      _todo.append("Arrange the transfer incident to divorce for " + _r.description + " (26 U.S.C. § 408(d)(6)).")
-    if not _r.is_separate() and _r.division != 'qdro' and not _r.value:
-      _review.append(_r.description + " is awarded to one party with no value entered, so it counts as $0 in the equalization.")
-  if len(vehicles):
-    _todo.append("Sign DMV title transfers (REG 227 or the pink slip) for vehicles changing hands.")
-  if eq.get('payment', 0) > 0 and eq_approach != 'pay':
-    _review.append("The equalizing payment differs from the calculated " + currency(eq['payment']) + ". The reason " + ("is recited." if eq_custom_reason else "is NOT recited; consider adding one (Fam. Code, § 2550).") )
-  if len([d for d in debts if not d.is_separate() and d.assigned_to != 'split']):
+  if pet_property or resp_property:
+    _review.append("The agreement lists the property awarded to each party but does not compute an equal division. Confirm the community estate is divided equally, or recite the parties' written agreement to an unequal division and any equalizing payment under Additional terms (Fam. Code, § 2550).")
+    _todo.append("Prepare the deeds (Interspousal Transfer Grant Deed), DMV title transfers, QDROs, and account transfers needed to carry out the property division.")
+  if pet_debts or resp_debts:
     _review.append("Creditors are not bound by the debt assignments. Joint accounts should be closed or refinanced into the assigned party's name.")
   # Other
   if pet_restore_name or resp_restore_name:
@@ -161,7 +140,7 @@ content: |
 
   **${ petitioner } v. ${ respondent }**[BR]
   ${ case_county } County Superior Court${ ', Case No. ' + case_number if case_filed else ' (not yet filed)' }[BR]
-  Prepared ${ format_date(today()) }${ ' by ' + preparer.name.full() if preparer_is_attorney else '' }
+  Prepared ${ format_date(today()) }
 
   Must be resolved before judgment
   --------------------------------
@@ -202,8 +181,8 @@ content: |
   * **Child support:** ${ currency(cs_amount) + ' per month from ' + party_obj[cs_payor].ref if cs_payor != 'none' else 'None' } (guideline ${ currency(guideline_amt) })
   % endif
   * **Spousal support:** ${ ss_summary }
-  * **Net community estate:** ${ currency(eq['community_total']) }
-  * **Equalizing payment:** ${ currency(eq_amount) + ' from ' + party_obj[eq_payor].ref + ' to ' + party_obj[eq_payee].ref if eq_payor else 'None' }
+  * **Property:** ${ 'No assets to be disposed of by the court' if assets_status == 'none' else str(len(pet_property)) + ' item(s) to ' + petitioner.ref + '; ' + str(len(resp_property)) + ' item(s) to ' + respondent.ref }
+  * **Debts:** ${ 'No debts to be disposed of by the court' if debts_status == 'none' else str(len(pet_debts)) + ' debt(s) to ' + petitioner.ref + '; ' + str(len(resp_debts)) + ' debt(s) to ' + respondent.ref }
 
   This memo is attorney work product prepared to assist in drafting.
   It is not part of the agreement.
@@ -247,32 +226,7 @@ buttons:
   - Start a new agreement: restart
   - Exit: exit
 ---
-id: award lists
+id: tax year
 reconsider: True
 code: |
-  asset_lists = [real_property, vehicles, accounts, retirement_plans, businesses, other_assets]
-  all_assets = [item for group in asset_lists for item in group]
-  pet_awarded = items_for(asset_lists, 'pet')
-  resp_awarded = items_for(asset_lists, 'resp')
-  split_in_kind = items_for([accounts, other_assets], 'split')
-  homes_awarded = [p for p in real_property if not p.is_separate() and p.disposition in ('pet', 'resp')]
-  homes_sold = [p for p in real_property if not p.is_separate() and p.disposition == 'sell']
-  qdro_plans = [r for r in retirement_plans if not r.is_separate() and r.division == 'qdro']
-  mixed_assets = [item for item in all_assets if item.character == 'mixed']
-  pet_sp = items_for(asset_lists, 'pet', True)
-  resp_sp = items_for(asset_lists, 'resp', True)
-  pet_debts = items_for([debts], 'pet')
-  resp_debts = items_for([debts], 'resp')
-  split_debts = items_for([debts], 'split')
-  pet_sp_debts = items_for([debts], 'pet', True)
-  resp_sp_debts = items_for([debts], 'resp', True)
-  alloc_label = {'pet': petitioner.ref, 'resp': respondent.ref, 'split': 'Equally'}
   this_tax_year = today().year
-  _claims = {
-    'epstein': 'reimbursement for payments of community obligations made with separate funds after the date of separation (Epstein credits)',
-    'watts': 'charges for the exclusive use of community property after the date of separation (Watts charges)',
-    's2640': 'reimbursement under Family Code section 2640 for separate property contributions to the acquisition of community property',
-    'other': 'all other claims for reimbursement between the community and either party',
-  }
-  waived_claims = [_claims[k] for k in ('epstein', 'watts', 's2640', 'other') if reimbursement_waivers[k]]
-  waived_claims_text = comma_and_list(waived_claims)

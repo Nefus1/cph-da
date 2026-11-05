@@ -122,7 +122,7 @@ help: |
 ---
 id: dispute resolution
 section: rev_other
-question: Disputes and the judgment
+question: Disputes
 fields:
   - If a dispute arises about the agreement: dispute_resolution
     input type: radio
@@ -130,27 +130,11 @@ fields:
       - The parties will first try mediation before going to court (except emergencies): mediation
       - Either party may go directly to court: court
     default: mediation
-  - When attached to the judgment, this agreement is: merge_judgment
-    input type: radio
-    choices:
-      - Merged into the judgment (enforced as a court order): merge
-      - Incorporated but not merged (also survives as a separate contract): no_merge
-    default: merge
-    help: |
-      **Merged** (the usual choice): the agreement becomes part of the
-      judgment and is enforced and modified as a court order.
-      **Not merged**: the agreement also remains an independent
-      contract, enforceable by contract remedies. Support terms remain
-      modifiable by the court either way unless expressly made
-      non-modifiable (Fam. Code, § 3591(c)).
-  - If the court does not enter judgment, the agreement still binds the parties: binding_without_judgment
-    datatype: yesnoradio
-    default: True
 help: |
-  **Enforcing a signed settlement.** A written settlement signed by
-  the parties can be enforced by motion under Code Civ. Proc.,
-  § 664.6, if the court is asked to keep jurisdiction for that
-  purpose. The agreement includes that request.
+  **The judgment.** The agreement merges into the judgment and is
+  enforced as a court order. It is binding when both parties sign it,
+  and it asks the court to keep jurisdiction to enforce it under Code
+  Civ. Proc., § 664.6.
 ---
 id: additional terms
 section: rev_other
@@ -185,7 +169,7 @@ subquestion: |
   <tr><th>Taxes</th><td>${ today().year }: ${ {'separate': 'separate returns', 'joint_option': 'joint if both agree', 'joint': 'joint return'}[tax_filing_current] }</td></tr>
   <tr><th>Attorney's fees</th><td>${ 'Each party pays their own' if atty_fees == 'own' else currency(atty_fees_amount) + ' from ' + (petitioner.ref if atty_fees == 'pet_pays' else respondent.ref) }</td></tr>
   <tr><th>Name restoration</th><td>${ comma_and_list([n for n in [pet_former_name if pet_restore_name else None, resp_former_name if resp_restore_name else None] if n]) or 'None' }</td></tr>
-  <tr><th>Disputes</th><td>${ 'Mediation first' if dispute_resolution == 'mediation' else 'Court' }; agreement ${ 'merged into' if merge_judgment == 'merge' else 'incorporated, not merged, into' } the judgment</td></tr>
+  <tr><th>Disputes</th><td>${ 'Mediation first' if dispute_resolution == 'mediation' else 'Court' }</td></tr>
   <tr><th>Additional provisions</th><td>${ len(additional_paragraphs) }</td></tr>
   </table>
 continue button field: other_reviewed
@@ -209,7 +193,7 @@ review:
       **Insurance:** spouse coverage until status ends: ${ word(yesno(spouse_coverage)) }
   - Edit: dispute_resolution
     button: |
-      **Disputes and judgment:** ${ dispute_resolution }; ${ merge_judgment }
+      **Disputes:** ${ 'Mediation first' if dispute_resolution == 'mediation' else 'Court' }
   - Edit: additional_terms
     button: |
       **Additional provisions:** ${ len(additional_paragraphs) }
@@ -217,6 +201,30 @@ review:
 #######################################################################
 # Disclosures and execution
 #######################################################################
+id: fl144 waiver
+section: rev_disclosures
+question: Stipulation and Waiver of Final Declaration of Disclosure
+subquestion: |
+  Form FL-144 waives the final {Declaration of Disclosure}. In it, each
+  party states under penalty of perjury that the preliminary
+  declaration was completed and served.
+field: fl144_waiver
+buttons:
+  - "Yes, FL-144 is filed or will be filed": True
+  - "No": False
+help: |
+  The parties may waive the final declaration by a written
+  stipulation under penalty of perjury (Fam. Code, § 2105(d)),
+  usually on form FL-144. The waiver confirms that each party
+  complied with the preliminary disclosure, completed and exchanged
+  a current Income and Expense Declaration (FL-150), and understands
+  the waiver.
+
+  If you answer **Yes**, the interview skips the preliminary and final
+  disclosure questions, and the agreement recites the waiver. If you
+  answer **No**, you will be asked about each party's preliminary
+  declaration and the final declarations.
+---
 id: preliminary disclosures
 section: rev_disclosures
 question: Preliminary Declarations of Disclosure
@@ -254,27 +262,22 @@ help: |
 id: final disclosures
 section: rev_disclosures
 question: Final Declarations of Disclosure
-fields:
-  - Final Declarations of Disclosure: final_disclosures
-    input type: radio
-    choices:
-      - Exchanged by both parties: exchanged
-      - Mutually waived (form FL-144 will be signed): waived
-      - Not yet exchanged; to be exchanged before judgment: pending
-    help: |
-      The parties may waive the final declaration by a written
-      stipulation under penalty of perjury (Fam. Code, § 2105(d)),
-      usually on form FL-144. The waiver must confirm the parties
-      complied with the preliminary disclosure, completed and
-      exchanged a current Income and Expense Declaration, and
-      understand the waiver.
-  - Have current Income and Expense Declarations (FL-150) been exchanged?: ied_exchanged
-    datatype: yesnoradio
+field: final_disclosures
+choices:
+  - Exchanged by both parties: exchanged
+  - Not yet exchanged; to be exchanged before judgment: pending
 help: |
-  The agreement recites the disclosure status. If final
-  declarations are waived, the agreement includes the § 2105(d)
-  acknowledgments, and the memo reminds you to file FL-144 with the
-  judgment packet.
+  The agreement recites the disclosure status. Final declarations
+  must be exchanged before judgment unless the parties waive them on
+  FL-144 (Fam. Code, § 2105(d)).
+---
+id: final disclosure status
+reconsider: True
+code: |
+  if fl144_waiver:
+    final_status = 'waived'
+  else:
+    final_status = final_disclosures
 ---
 id: execution
 section: rev_disclosures
@@ -282,7 +285,7 @@ question: Signing
 fields:
   - Include notary acknowledgment pages for the parties' signatures?: notarize
     datatype: yesnoradio
-    default: ${ preparer_role != 'mediator' and len(real_property) > 0 }
+    default: False
     help: |
       Notarization is not required for an MSA, but it is required
       for the respondent's signature on a **default judgment with a
@@ -293,8 +296,7 @@ fields:
     datatype: yesnoradio
     default: True
 help: |
-  Each party should initial every page. The agreement includes an
-  "Approved as to form" block for each attorney of record. Counsel
+  The agreement includes an "Approved as to form" block for each attorney of record. Counsel
   approves form only; the signature does not make counsel a party.
 ---
 id: disclosures summary
@@ -302,13 +304,17 @@ section: rev_disclosures
 question: Disclosures and signing summary
 subquestion: |
   <table class="table table-sm cph-summary">
+  % if fl144_waiver:
+  <tr><th>Declarations of disclosure</th><td>Final declarations waived on FL-144; preliminary declarations confirmed in the waiver</td></tr>
+  % else:
   <tr><th>Preliminary declarations</th><td>${ petitioner.ref }: ${ 'served ' + format_date(pet_prelim_date) if pet_prelim_served else '<strong>not served</strong>' };
   ${ respondent.ref }: ${ 'served ' + format_date(resp_prelim_date) if resp_prelim_served else '<strong>not served</strong>' }</td></tr>
-  <tr><th>Final declarations</th><td>${ {'exchanged': 'Exchanged', 'waived': 'Waived (FL-144)', 'pending': 'Pending'}[final_disclosures] }</td></tr>
+  <tr><th>Final declarations</th><td>${ {'exchanged': 'Exchanged', 'pending': 'Pending'}[final_disclosures] }</td></tr>
+  % endif
   <tr><th>Notary pages</th><td>${ word(yesno(notarize)) }</td></tr>
   </table>
 
-  % if not (pet_prelim_served and resp_prelim_served):
+  % if not fl144_waiver and not (pet_prelim_served and resp_prelim_served):
   <div class="cph-warning">
   Judgment cannot be entered until the preliminary declarations are
   served (Fam. Code, § 2106). The memo lists this as an open item.
@@ -321,10 +327,15 @@ event: rev_disclosures
 section: rev_disclosures
 question: Review disclosures and signing
 review:
+  - Edit: fl144_waiver
+    button: |
+      **FL-144 waiver:** ${ word(yesno(fl144_waiver)) }
   - Edit: pet_prelim_served
+    show if: pet_prelim_served
     button: |
       **Preliminary declarations:** ${ word(yesno(pet_prelim_served)) } / ${ word(yesno(resp_prelim_served)) }
   - Edit: final_disclosures
+    show if: pet_prelim_served
     button: |
       **Final declarations:** ${ final_disclosures }
   - Edit: notarize

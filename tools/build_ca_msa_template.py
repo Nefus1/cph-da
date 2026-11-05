@@ -140,41 +140,6 @@ def footer():
     run.font.name = FONT
     run.font.size = Pt(10)
     field(par, 'PAGE')
-    par2 = ftr.add_paragraph()
-    par2.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    run = par2.add_run('Initials: ________ ________')
-    run.font.name = FONT
-    run.font.size = Pt(10)
-
-
-def table(headers, cells, widths, loop_seq=None, loop_var='row'):
-    """Table with a header row and either static rows or one docxtpl row loop."""
-    rows = 1 + (3 if loop_seq else len(cells))
-    tbl = doc.add_table(rows=rows, cols=len(headers))
-    tbl.style = 'Table Grid'
-    tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
-    for idx, head in enumerate(headers):
-        cell = tbl.rows[0].cells[idx]
-        cell.paragraphs[0].paragraph_format.space_after = Pt(0)
-        _run(cell.paragraphs[0], head, bold=True)
-    if loop_seq:
-        _run(tbl.rows[1].cells[0].paragraphs[0], '{%tr for ' + loop_var + ' in ' + loop_seq + ' %}')
-        for idx, val in enumerate(cells):
-            cell = tbl.rows[2].cells[idx]
-            cell.paragraphs[0].paragraph_format.space_after = Pt(0)
-            _run(cell.paragraphs[0], val)
-        _run(tbl.rows[3].cells[0].paragraphs[0], '{%tr endfor %}')
-    else:
-        for r_idx, row in enumerate(cells):
-            for c_idx, val in enumerate(row):
-                cell = tbl.rows[r_idx + 1].cells[c_idx]
-                cell.paragraphs[0].paragraph_format.space_after = Pt(0)
-                _run(cell.paragraphs[0], val, bold=(r_idx == len(cells) - 1 and c_idx == 0 and val.startswith('Net')))
-    for row in tbl.rows:
-        for idx, width in enumerate(widths):
-            row.cells[idx].width = Inches(width)
-    blank()
-    return tbl
 
 
 def signature(name_expr, role):
@@ -183,9 +148,25 @@ def signature(name_expr, role):
     text(name_expr + ', ' + role, align='left', space_after=24)
 
 
+def boxed(body):
+    """Paragraph inside a single bordered cell, as on the statutory notary form."""
+    tbl = doc.add_table(rows=1, cols=1)
+    tbl.style = 'Table Grid'
+    tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+    cell = tbl.rows[0].cells[0]
+    cell.width = Inches(6.5)
+    par = cell.paragraphs[0]
+    par.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    par.paragraph_format.space_before = Pt(4)
+    par.paragraph_format.space_after = Pt(4)
+    _run(par, body)
+    blank()
+    return tbl
+
+
 def notary(name_expr):
     text('CALIFORNIA ALL-PURPOSE ACKNOWLEDGMENT', align='center', bold=True)
-    text('A notary public or other officer completing this certificate verifies only the identity of the individual who signed the document to which this certificate is attached, and not the truthfulness, accuracy, or validity of that document.', align='left')
+    boxed('A notary public or other officer completing this certificate verifies only the identity of the individual who signed the document to which this certificate is attached, and not the truthfulness, accuracy, or validity of that document.')
     text('State of California\nCounty of ______________________', align='left')
     text('On ____________________ before me, ______________________________ (insert name and title of the officer), personally appeared ' + name_expr + ', who proved to me on the basis of satisfactory evidence to be the person(s) whose name(s) is/are subscribed to the within instrument and acknowledged to me that he/she/they executed the same in his/her/their authorized capacity(ies), and that by his/her/their signature(s) on the instrument the person(s), or the entity upon behalf of which the person(s) acted, executed the instrument.')
     text('I certify under PENALTY OF PERJURY under the laws of the State of California that the foregoing paragraph is true and correct.')
@@ -199,17 +180,17 @@ footer()
 
 # ---------------------------------------------------------- caption
 ctl("{%p if doc_format == 'attachment' %}")
-ctl('{%p if preparer_is_attorney %}')
-text('{{ preparer.name.full() }} (SBN {{ preparer_sbn }})', align='left', space_after=0)
-ctl('{%p if preparer_firm %}')
-text('{{ preparer_firm }}', align='left', space_after=0)
+text('{{ caption_name }}{% if caption_sbn %} (SBN {{ caption_sbn }}){% endif %}', align='left', space_after=0)
+ctl('{%p if caption_firm %}')
+text('{{ caption_firm }}', align='left', space_after=0)
 ctl('{%p endif %}')
-text('{{ preparer.address.address }}', align='left', space_after=0)
-text('{{ preparer.address.city }}, {{ preparer.address.state }} {{ preparer.address.zip }}', align='left', space_after=0)
-text('Telephone: {{ preparer.phone_number }}', align='left', space_after=0)
-text('Email: {{ preparer.email }}', align='left', space_after=0)
-text("Attorney for {{ 'Petitioner ' + petitioner.name.full() if preparer_role == 'atty_pet' else 'Respondent ' + respondent.name.full() }}", align='left', space_after=24)
+text('{{ caption_contact.address.address }}', align='left', space_after=0)
+text('{{ caption_contact.address.city }}, {{ caption_contact.address.state }} {{ caption_contact.address.zip }}', align='left', space_after=0)
+text('Telephone: {{ caption_contact.phone_number }}', align='left', space_after=0)
+ctl('{%p if caption_contact.email %}')
+text('Email: {{ caption_contact.email }}', align='left', space_after=0)
 ctl('{%p endif %}')
+text('{{ caption_for }}', align='left', space_after=24)
 text('SUPERIOR COURT OF CALIFORNIA', align='center', bold=True, space_after=0)
 text('COUNTY OF {{ case_county | upper }}', align='center', bold=True, space_after=24)
 cap = doc.add_table(rows=1, cols=2)
@@ -256,8 +237,7 @@ para('Purpose',
      'The parties intend this Agreement to be a final and complete settlement of all of their rights and obligations arising from the {{ marriage_word }}, including custody and support of any children, {{ "partner" if relationship_type == "rdp" else "spousal" }} support, the division of community and quasi-community property and debts, the confirmation of separate property and debts, and attorney\'s fees and costs, except as this Agreement expressly provides otherwise.')
 para('Representation',
      '{% if pet_has_counsel %}' + P + ' has been represented in the negotiation of this Agreement by {{ pet_counsel_name }}{% if pet_counsel_firm %} of {{ pet_counsel_firm }}{% endif %}.{% else %}' + P + ' has not been represented by an attorney. ' + P + ' has been advised to obtain independent legal advice before signing this Agreement, has had a full opportunity to do so, and signs it voluntarily{% if resp_has_counsel %}, understanding that {{ resp_counsel_name }} represents only ' + R + '{% endif %}.{% endif %} '
-     '{% if resp_has_counsel %}' + R + ' has been represented in the negotiation of this Agreement by {{ resp_counsel_name }}{% if resp_counsel_firm %} of {{ resp_counsel_firm }}{% endif %}.{% else %}' + R + ' has not been represented by an attorney. ' + R + ' has been advised to obtain independent legal advice before signing this Agreement, has had a full opportunity to do so, and signs it voluntarily{% if pet_has_counsel %}, understanding that {{ pet_counsel_name }} represents only ' + P + '{% endif %}.{% endif %}'
-     '{% if preparer_role == "mediator" %} This Agreement was prepared with the assistance of a mediator, who acted as a neutral and did not represent or give legal advice to either party.{% endif %}')
+     '{% if resp_has_counsel %}' + R + ' has been represented in the negotiation of this Agreement by {{ resp_counsel_name }}{% if resp_counsel_firm %} of {{ resp_counsel_firm }}{% endif %}.{% else %}' + R + ' has not been represented by an attorney. ' + R + ' has been advised to obtain independent legal advice before signing this Agreement, has had a full opportunity to do so, and signs it voluntarily{% if pet_has_counsel %}, understanding that {{ pet_counsel_name }} represents only ' + P + '{% endif %}.{% endif %}')
 ctl('{%p if translation_needed %}')
 para('Translation',
      'This Agreement was translated into {{ translation_language }}{% if translator_name %} by {{ translator_name }}{% endif %} before it was signed. The parties confirm that they read or had read to them the translated Agreement and understand its terms.')
@@ -402,112 +382,46 @@ para('Temporary Support Arrears and Credits',
      '{{ period(arrears_terms) | manual_line_breaks }}')
 ctl('{%p endif %}')
 
-# ---------------------------------------------------------- property
-article('DIVISION OF PROPERTY')
-para('Division of the Community Estate',
-     '{% if eq_mode in ["equal", "pay"] %}The parties agree that the division of property and debts in this Agreement, together with any equalizing payment, is an equal division of their community and quasi-community property and debts (Family Code section 2550).'
-     '{% else %}The parties understand that Family Code section 2550 requires an equal division of the community estate unless the parties agree otherwise in writing. The parties knowingly and voluntarily agree in writing to the division in this Agreement, which may be unequal{% if eq_custom_reason %}, because {{ period(eq_custom_reason) }}{% else %}.{% endif %}{% endif %}'
-     ' The values stated in Exhibit A are agreed values for purposes of the division, and neither party may later challenge the division on the ground that an asset or debt had a different value.')
-para('Property Awarded to ' + P,
-     '{% if pet_awarded %}' + P + ' is awarded, as ' + P + '\'s sole and separate property, all community and quasi-community interest in the following:{% else %}' + P + ' is awarded, as ' + P + '\'s sole and separate property, the household items described in this Article and any other property this Agreement awards to ' + P + '.{% endif %}')
-ctl('{%p if pet_awarded %}')
-loop('asset', 'pet_awarded', '{{ asset.legal_text() }}{% if asset.character == "mixed" %}, together with ' + P + '\'s separate property interest in it, which is confirmed to ' + P + '{% endif %};')
+# ---------------------------------------------------------- property and debts
+# Laid out like the LASC judgment form, items 501-504: property and debts
+# awarded and confirmed to each party, whether community or separate.
+def lines(seq, var):
+    """Numbered list of one-line items, or "None." when the list is empty."""
+    ctl('{%p if ' + seq + ' %}')
+    loop(var, seq, '{% if loop.last %}{{ period(' + var + ') }}{% else %}{{ ' + var + ' }};{% endif %}')
+    ctl('{%p else %}')
+    item('None.')
+    ctl('{%p endif %}')
+
+
+article('DIVISION OF PROPERTY AND DEBTS')
+ctl("{%p if assets_status == 'none' %}")
+para('Property', 'There are no assets to be disposed of by the court.')
+ctl('{%p else %}')
+for who, other in ((P, R), (R, P)):
+    var = 'pet_property' if who == P else 'resp_property'
+    para('Property Awarded and Confirmed to ' + who,
+         'The following property, whether community or separate, is awarded and confirmed to ' + who
+         + ' as the separate property of ' + who + ', along with any and all encumbrances on it, and '
+         + who + ' shall hold ' + other + ' harmless from those encumbrances:')
+    lines(var, 'asset')
 ctl('{%p endif %}')
-para('Property Awarded to ' + R,
-     '{% if resp_awarded %}' + R + ' is awarded, as ' + R + '\'s sole and separate property, all community and quasi-community interest in the following:{% else %}' + R + ' is awarded, as ' + R + '\'s sole and separate property, the household items described in this Article and any other property this Agreement awards to ' + R + '.{% endif %}')
-ctl('{%p if resp_awarded %}')
-loop('asset', 'resp_awarded', '{{ asset.legal_text() }}{% if asset.character == "mixed" %}, together with ' + R + '\'s separate property interest in it, which is confirmed to ' + R + '{% endif %};')
+ctl("{%p if debts_status == 'none' %}")
+para('Debts', 'There are no debts to be disposed of by the court.')
+ctl('{%p else %}')
+for who, other in ((P, R), (R, P)):
+    var = 'pet_debts' if who == P else 'resp_debts'
+    para('Debts Awarded and Confirmed to ' + who,
+         'The following debts (Family Code sections 2620 through 2627), whether community or separate, are awarded and confirmed to '
+         + who + ' as ' + who + '\'s separate debts, and ' + who + ' shall hold ' + other + ' harmless from these obligations:')
+    lines(var, 'debt')
 ctl('{%p endif %}')
-ctl('{%p if split_in_kind %}')
-para('Property Divided Equally',
-     'The following shall be divided equally in kind between the parties, valued as of the date of division, with each party\'s share transferred to an account or into the possession of that party within 30 days after the date this Agreement is signed:')
-loop('asset', 'split_in_kind', '{{ asset.legal_text() }};')
-ctl('{%p endif %}')
-ctl('{%p for home in homes_awarded %}')
-para('Real Property at {{ home.short_name() }}',
-     '{{ party_ref[home.disposition] }} shall be solely responsible for all loans, property taxes, insurance, assessments, and other obligations on the property from the date of this Agreement and shall hold {{ party_ref[home.other_party()] }} harmless from them.'
-     '{% if home.refinance_days %} Within {{ home.refinance_days }} days after the date this Agreement is signed, {{ party_ref[home.disposition] }} shall refinance or assume all loans secured by the property and obtain the release of {{ party_ref[home.other_party()] }} from all liability on them.'
-     '{% if home.refi_fallback == "sell" %} If {{ party_ref[home.disposition] }} does not do so by that date, the property shall be listed for sale within 30 days with a listing agent selected by agreement of the parties, and from the net proceeds of sale the loans shall be paid and the balance paid to {{ party_ref[home.disposition] }}.'
-     '{% else %} If {{ party_ref[home.disposition] }} does not do so by that date, {{ party_ref[home.other_party()] }} may apply to the court for an order compelling the sale of the property or other appropriate relief.{% endif %}{% endif %}'
-     ' {{ party_ref[home.other_party()] }} shall sign and deliver an Interspousal Transfer Grant Deed transferring all of {{ party_ref[home.other_party()] }}\'s interest in the property to {{ party_ref[home.disposition] }} within {{ home.deed_days }} days after {% if home.refinance_days %}written notice that the refinance is ready to close, to be deposited in escrow and recorded at closing{% else %}the date this Agreement is signed{% endif %}.')
-ctl('{%p endfor %}')
-ctl('{%p for home in homes_sold %}')
-para('Sale of Real Property at {{ home.short_name() }}',
-     'The property shall be listed for sale within {{ home.list_days }} days after the date this Agreement is signed, with a licensed real estate broker {% if home.agent == "joint" %}selected by agreement of the parties{% else %}selected by {{ party_ref[home.agent] }}{% endif %}. The parties shall cooperate in the sale and shall accept any reasonable offer at or near the listing price.{% if home.price_terms %} {{ period(home.price_terms) }}{% endif %}'
-     ' Until the close of escrow, {% if home.occupant in ["pet", "resp"] %}{{ party_ref[home.occupant] }} shall have the exclusive use and possession of the property and shall keep it in good, showable condition{% else %}neither party shall occupy the property unless the parties agree otherwise in writing{% endif %}. '
-     '{% if home.carrying_costs == "equal" or home.occupant == "none" %}The parties shall share equally the mortgage, property taxes, insurance, and necessary repairs until the close of escrow.'
-     '{% elif home.carrying_costs == "occupant" %}{{ party_ref[home.occupant] }} shall pay the mortgage, property taxes, insurance, and routine maintenance until the close of escrow, without reimbursement.'
-     '{% else %}{{ party_ref[home.occupant] }} shall pay the mortgage, property taxes, and insurance until the close of escrow and shall be reimbursed for the principal portion of those payments from the proceeds of sale.{% endif %}'
-     ' From the proceeds of sale, after payment of the encumbrances and costs of sale{% if home.carrying_costs == "reimbursed" and home.occupant != "none" %} and the reimbursement stated above{% endif %}, the balance shall be divided equally between the parties. The court retains jurisdiction to resolve any dispute concerning the sale.')
-ctl('{%p endfor %}')
-ctl('{%p for plan in qdro_plans %}')
-para('Retirement Plan: {{ plan.description }}',
-     'The community interest in {{ plan.description }}, in which {{ party_ref[plan.participant] }} is the participant, shall be divided equally between the parties'
-     '{% if plan.needs_order() %} by a Qualified Domestic Relations Order or other domestic relations order acceptable to the plan. The community interest is the portion attributable to the period from the date of marriage to the date of separation, determined by the time rule of In re Marriage of Brown (1976) 15 Cal.3d 838 for any defined benefit, and by tracing contributions and their earnings for any defined contribution account. The order shall be prepared by {% if plan.order_preparer == "specialist" %}a domestic relations order specialist jointly retained by the parties{% else %}counsel for {{ party_ref[plan.order_preparer] }}{% endif %}, and its cost shall be paid {% if plan.order_cost == "equal" %}equally by the parties{% elif plan.order_cost == "participant" %}by {{ party_ref[plan.participant] }}{% else %}by {{ party_ref["resp" if plan.participant == "pet" else "pet"] }}{% endif %}.'
-     '{% if plan.offers_survivor() and plan.survivor_benefit %} The order shall award {{ party_ref["resp" if plan.participant == "pet" else "pet"] }} survivor benefits to the extent of the community interest, and {{ party_ref[plan.participant] }} shall make any election needed to provide them.{% endif %}'
-     '{% else %} by a transfer incident to divorce under 26 U.S.C. section 408(d)(6), completed within 60 days after the date this Agreement is signed.{% endif %}'
-     ' Until the division is completed, {{ party_ref[plan.participant] }} shall not take any loan, withdrawal, or distribution that reduces the community interest. The court retains jurisdiction to make any orders needed to carry out this paragraph (Family Code section 2610).')
-ctl('{%p endfor %}')
-para('Household Furniture and Personal Effects',
-     '{% if household_goods == "possession" %}Each party is awarded the household furniture, furnishings, appliances, clothing, jewelry, and personal effects now in that party\'s possession.'
-     '{% else %}The household furniture, furnishings, appliances, and personal effects are divided as follows: {{ household_goods_list | manual_line_breaks }}{% endif %}')
-para('Separate Property of ' + P,
-     'All earnings and accumulations of ' + P + ' after the date of separation, all property ' + P + ' owned before the {{ marriage_word }}, and all property ' + P + ' acquired at any time by gift, bequest, devise, or inheritance are confirmed to ' + P + ' as ' + P + '\'s separate property{% if pet_sp %}, including:{% else %}.{% endif %}')
-ctl('{%p if pet_sp %}')
-loop('asset', 'pet_sp', '{{ asset.legal_text() }};')
-ctl('{%p endif %}')
-para('Separate Property of ' + R,
-     'All earnings and accumulations of ' + R + ' after the date of separation, all property ' + R + ' owned before the {{ marriage_word }}, and all property ' + R + ' acquired at any time by gift, bequest, devise, or inheritance are confirmed to ' + R + ' as ' + R + '\'s separate property{% if resp_sp %}, including:{% else %}.{% endif %}')
-ctl('{%p if resp_sp %}')
-loop('asset', 'resp_sp', '{{ asset.legal_text() }};')
-ctl('{%p endif %}')
-ctl('{%p if eq_payor %}')
-para('Equalizing Payment',
-     'To equalize the division of the community estate, {{ party_ref[eq_payor] }} shall pay to {{ party_ref[eq_payee] }} the sum of {{ currency(eq_amount) }}'
-     '{% if eq_payment_method == "lump" %} within {{ eq_due_days }} days after the date this Agreement is signed.'
-     '{% elif eq_payment_method == "proceeds" %} from {{ party_ref[eq_payor] }}\'s share of the proceeds of the refinance or sale of the real property described in this Article, at the close of escrow.'
-     '{% else %}, payable as follows: {{ period(eq_installments) }}{% endif %}'
-     '{% if eq_interest %} Any amount not paid when due shall bear interest at the legal rate from the due date until paid.{% endif %}')
-ctl('{%p endif %}')
-para('Reimbursement Claims',
-     '{% if waived_claims %}Each party waives, as against the other, {{ waived_claims_text }}.{% else %}Each party reserves all claims for reimbursement except as resolved in this Agreement.{% endif %}'
-     '{% if reimbursement_exceptions %} The following claims are resolved as stated: {{ period(reimbursement_exceptions) }}{% endif %}')
 para('Omitted Assets and Debts',
      'Any community or quasi-community asset or debt not divided by this Agreement shall be divided equally between the parties on the request of either party, and the court retains jurisdiction to do so (Family Code section 2556). This paragraph does not limit any remedy for a breach of fiduciary duty or of the duty of disclosure.')
 para('Transfer Documents',
      'Each party shall sign, acknowledge, and deliver any deed, title, transfer form, beneficiary change, or other document reasonably needed to carry out this Agreement within 15 days after a written request. If a party fails to do so, the court may appoint the clerk of the court or another person as elisor to sign it (Code of Civil Procedure section 128(a)(4)).')
 para('Characterization',
      'To the extent this Agreement changes the character of any property, this Agreement is an express written declaration of transmutation by the party whose interest is adversely affected (Family Code section 852).')
-
-# ---------------------------------------------------------- debts
-article('DEBTS')
-para('Debts Assigned to ' + P,
-     P + ' shall pay {% if pet_debts %}the debts listed below and {% endif %}the encumbrances on all property awarded or confirmed to ' + P + ', and shall hold ' + R + ' harmless from them{% if pet_debts %}:{% else %}.{% endif %}')
-ctl('{%p if pet_debts %}')
-loop('debt', 'pet_debts', '{{ debt.legal_text() }};')
-ctl('{%p endif %}')
-para('Debts Assigned to ' + R,
-     R + ' shall pay {% if resp_debts %}the debts listed below and {% endif %}the encumbrances on all property awarded or confirmed to ' + R + ', and shall hold ' + P + ' harmless from them{% if resp_debts %}:{% else %}.{% endif %}')
-ctl('{%p if resp_debts %}')
-loop('debt', 'resp_debts', '{{ debt.legal_text() }};')
-ctl('{%p endif %}')
-ctl('{%p if split_debts %}')
-para('Debts Paid Equally',
-     'The parties shall each pay one-half of the following debts until paid in full and shall close each account to new charges:')
-loop('debt', 'split_debts', '{{ debt.legal_text() }};')
-ctl('{%p endif %}')
-ctl('{%p if pet_sp_debts or resp_sp_debts %}')
-para('Separate Debts',
-     'The following debts are confirmed as the separate debts of the party named:')
-loop('debt', 'pet_sp_debts', '{{ debt.legal_text() }}, confirmed to ' + P + ';')
-loop('debt', 'resp_sp_debts', '{{ debt.legal_text() }}, confirmed to ' + R + ';')
-ctl('{%p endif %}')
-para('Debts After Separation',
-     'Each party shall pay all debts that party incurred after the date of separation, which are confirmed to that party without offset (Family Code section 2623).')
-para('Indemnification',
-     'Each party shall indemnify and hold the other harmless from every debt assigned to that party, including reasonable attorney\'s fees and costs incurred by the other party because of the indemnifying party\'s failure to pay. The parties understand that this Agreement does not bind their creditors, and that a creditor may seek payment of a joint debt from either party.')
-para('Undisclosed Debts and New Debts',
-     'Any debt not disclosed in this Agreement or in a party\'s Declaration of Disclosure shall be paid by the party who incurred it, who shall hold the other harmless from it. Neither party shall incur any debt or obligation for which the other may be liable after the date this Agreement is signed.')
 
 # ---------------------------------------------------------- taxes
 article('INCOME TAXES')
@@ -535,12 +449,13 @@ ctl('{%p endif %}')
 # ---------------------------------------------------------- disclosures
 article('DISCLOSURES')
 para('Preliminary Declarations of Disclosure',
+     '{% if fl144_waiver %}Each party has completed and served a preliminary Declaration of Disclosure and a current Income and Expense Declaration, as confirmed in the parties\' Stipulation and Waiver of Final Declaration of Disclosure (form FL-144) (Family Code sections 2104 and 2105(d)).{% else %}'
      '{% if pet_prelim_served %}' + P + ' served a preliminary Declaration of Disclosure on {{ format_date(pet_prelim_date) }}.{% else %}' + P + ' shall serve a preliminary Declaration of Disclosure before entry of judgment.{% endif %} '
      '{% if resp_prelim_served %}' + R + ' served a preliminary Declaration of Disclosure on {{ format_date(resp_prelim_date) }}.{% else %}' + R + ' shall serve a preliminary Declaration of Disclosure before entry of judgment.{% endif %}'
-     ' (Family Code section 2104.)')
+     ' (Family Code section 2104.){% endif %}')
 para('Final Declarations of Disclosure',
-     '{% if final_disclosures == "exchanged" %}The parties have exchanged final Declarations of Disclosure under Family Code section 2105.'
-     '{% elif final_disclosures == "waived" %}The parties waive the final Declaration of Disclosure under Family Code section 2105(d). Each party declares under penalty of perjury that: (1) the party has complied with Family Code section 2104 and the preliminary Declaration of Disclosure has been completed and exchanged; (2) the party has completed and exchanged a current Income and Expense Declaration that includes all material facts and information on the party\'s earnings, accumulations, and expenses; (3) the party has fully complied with Family Code section 2102 and has fully augmented the preliminary Declaration of Disclosure, if needed; (4) the waiver is knowingly, intelligently, and voluntarily entered into by the party; and (5) the party understands that this waiver does not limit the legal disclosure obligations of the parties, but rather is a statement under penalty of perjury that those obligations have been fulfilled. The parties shall also sign and file a Stipulation and Waiver of Final Declaration of Disclosure (form FL-144).'
+     '{% if final_status == "exchanged" %}The parties have exchanged final Declarations of Disclosure under Family Code section 2105.'
+     '{% elif final_status == "waived" %}The parties waive the final Declaration of Disclosure under Family Code section 2105(d). Each party declares under penalty of perjury that: (1) the party has complied with Family Code section 2104 and the preliminary Declaration of Disclosure has been completed and exchanged; (2) the party has completed and exchanged a current Income and Expense Declaration that includes all material facts and information on the party\'s earnings, accumulations, and expenses; (3) the party has fully complied with Family Code section 2102 and has fully augmented the preliminary Declaration of Disclosure, if needed; (4) the waiver is knowingly, intelligently, and voluntarily entered into by the party; and (5) the party understands that this waiver does not limit the legal disclosure obligations of the parties, but rather is a statement under penalty of perjury that those obligations have been fulfilled. The parties shall also sign and file a Stipulation and Waiver of Final Declaration of Disclosure (form FL-144).'
      '{% else %}Each party shall serve a final Declaration of Disclosure before entry of judgment, unless the parties waive it in writing under Family Code section 2105(d).{% endif %}')
 para('Full Disclosure',
      'Each party warrants that they have fully disclosed all assets and debts in which they have or may have an interest, their income and expenses, and all material facts and information concerning the characterization and valuation of those assets and debts and any investment opportunity that arose during the {{ marriage_word }} (Family Code sections 721, 1100, and 2100 through 2113). Each party understands that the duty to update and correct these disclosures continues until the assets and debts have been distributed (Family Code section 2102).')
@@ -565,12 +480,9 @@ para('Dispute Resolution',
      '{% if dispute_resolution == "mediation" %}Except in an emergency or as needed to preserve a party\'s rights, before filing a request for court action concerning this Agreement, the parties shall attempt in good faith to resolve the dispute through mediation, with the cost shared equally. Disputes about custody or parenting time remain subject to child custody mediation or recommending counseling under Family Code section 3170.'
      '{% else %}Either party may ask the court to resolve any dispute concerning this Agreement.{% endif %}')
 para('Incorporation in Judgment',
-     'The parties shall submit this Agreement to the court and request that it be attached to and incorporated in the judgment in the Action, and that the parties be ordered to comply with all of its terms. '
-     '{% if merge_judgment == "merge" %}On entry of judgment, this Agreement shall merge into the judgment, and its terms shall be enforceable as orders of the court.'
-     '{% else %}This Agreement shall not merge into the judgment, but shall survive as an independent contract enforceable by contract remedies as well as by the remedies available to enforce the judgment{% if has_minor_children %}, except that the child support provisions are enforceable only as orders of the court{% endif %}.{% endif %}')
+     'The parties shall submit this Agreement to the court and request that it be attached to and incorporated in the judgment in the Action, and that the parties be ordered to comply with all of its terms. On entry of judgment, this Agreement shall merge into the judgment, and its terms shall be enforceable as orders of the court.')
 para('Effective Date and Enforcement',
-     '{% if binding_without_judgment %}This Agreement is effective and binding on the parties on the date the last party signs it, whether or not it is incorporated in a judgment. The parties request that the court retain jurisdiction under Code of Civil Procedure section 664.6 to enforce this Agreement until all of its terms are performed in full.'
-     '{% else %}This Agreement shall become effective only if it is incorporated in a judgment entered in the Action.{% endif %}')
+     'This Agreement is effective and binding on the parties on the date the last party signs it, whether or not it is incorporated in a judgment. The parties request that the court retain jurisdiction under Code of Civil Procedure section 664.6 to enforce this Agreement until all of its terms are performed in full.')
 para('Mutual Release',
      'Except for the obligations stated in this Agreement and claims based on assets or debts not disclosed, each party releases the other from all claims, demands, and obligations arising from their {{ marriage_word }}, including claims for breach of fiduciary duty.{% if has_minor_children %} This release does not affect any right of the children.{% endif %}')
 para('Voluntary Agreement',
@@ -626,33 +538,6 @@ notary('{{ petitioner }}')
 page_break()
 notary('{{ respondent }}')
 ctl('{%p endif %}')
-
-# ---------------------------------------------------------- exhibit A
-page_break()
-text('EXHIBIT A', align='center', bold=True, space_after=0)
-text('SCHEDULE OF ASSETS AND DEBTS', align='center', bold=True)
-text('Values are agreed values for purposes of the division. "Equity" is fair market value less loans and liens. Only community interests are counted in the equal division.', align='left')
-ctl('{%p if all_assets %}')
-text('Assets', align='left', bold=True, space_after=6)
-table(['Item', 'Character', 'Equity', 'Community interest', 'To'],
-      ['{{ row.category }}: {{ row.short_desc() }}', '{{ row.character_label() }}', '{{ currency(row.net_value()) }}',
-       '{{ currency(row.community_value()) }}', '{{ alloc_label[row.allocation()] }}'],
-      [2.4, 1.3, 1.0, 1.0, 0.8], loop_seq='all_assets')
-ctl('{%p endif %}')
-ctl('{%p if debts %}')
-text('Debts', align='left', bold=True, space_after=6)
-table(['Creditor', 'Character', 'Balance', 'Community share', 'Paid by'],
-      ['{{ row.short_desc() }}', '{{ row.character_label() }}', '{{ currency(row.value) }}',
-       '{{ currency(row.community_value()) }}', '{{ alloc_label[row.allocation()] }}'],
-      [2.4, 1.3, 1.0, 1.0, 0.8], loop_seq='debts')
-ctl('{%p endif %}')
-text('Equal Division', align='left', bold=True, space_after=6)
-table(['', P, R],
-      [['Community assets received', '{{ currency(eq["pet_assets"]) }}', '{{ currency(eq["resp_assets"]) }}'],
-       ['Community debts assumed', '({{ currency(eq["pet_debts"]) }})', '({{ currency(eq["resp_debts"]) }})'],
-       ['Net community received', '{{ currency(eq["pet_net"]) }}', '{{ currency(eq["resp_net"]) }}']],
-      [3.0, 1.75, 1.75])
-text('{% if eq_payor %}Equalizing payment: {{ currency(eq_amount) }} from {{ party_ref[eq_payor] }} to {{ party_ref[eq_payee] }}.{% elif eq_mode == "waive" %}Equalizing payment of {{ currency(eq["payment"]) }} waived by agreement of the parties.{% else %}No equalizing payment is required.{% endif %} Community property and debts divided equally in kind: {{ currency(eq["split_assets"] - eq["split_debts"]) }} net.', align='left')
 
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 doc.save(OUT)

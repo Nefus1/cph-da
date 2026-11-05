@@ -16,9 +16,9 @@ code: |
       'file': 'ca_msa.yml',
       'area': 'Family law',
       'court': 'California Superior Court',
-      'time': '30 to 60 minutes',
+      'time': '20 to 45 minutes',
       'output': 'MSA (Word and PDF) and attorney drafting memo',
-      'summary': 'Custody and parenting plan, guideline and non-guideline child support, spousal support, division of community property and debts with an automatic equalization calculation, disclosures, and judgment terms. Works for married spouses and registered domestic partners.',
+      'summary': 'Custody and parenting plan, guideline and non-guideline child support, spousal support, LASC-style division of property and debts, disclosures, and judgment terms for a dissolution of marriage.',
     },
   ]
 ---
