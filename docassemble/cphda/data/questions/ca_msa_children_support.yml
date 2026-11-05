@@ -1,0 +1,906 @@
+---
+comment: |
+  Children, custody, parenting plan, child support, and spousal
+  support for the California MSA interview.
+---
+id: minor children
+section: rev_children
+question: Do the parties have minor children together?
+subquestion: |
+  Include children born to or adopted by both parties, and children
+  born during the ${ marriage_word } who are presumed to be children
+  of both parties (Fam. Code, § 7540). Do not include adult children
+  unless they are 18, still in high school full time, and living at
+  home (Fam. Code, § 3901).
+yesno: has_minor_children
+help: |
+  **Adult children.** Child support continues to age 19 for an
+  unmarried child who is a full-time high school student and not
+  self-supporting (Fam. Code, § 3901(a)). Support for an adult child
+  who is incapacitated and without means is also possible (§ 3910).
+
+  **Children of only one party.** A stepparent has no duty of support
+  under the MSA unless the parties agree. Leave those children out.
+---
+id: pregnancy
+section: rev_children
+question: Is either party currently pregnant?
+yesno: pregnancy
+help: |
+  If a child is expected, custody and support for that child cannot
+  be resolved yet. The agreement will state that the issue is
+  reserved, and the memo will flag it. Consider waiting until after
+  the birth to finalize the judgment.
+---
+id: child name
+section: rev_children
+question: |
+  % if i == 0:
+  Tell us about the parties' first child
+  % else:
+  Tell us about the ${ ordinal(i) } child
+  % endif
+fields:
+  - First name: children[i].name.first
+    grid: 4
+  - Middle name: children[i].name.middle
+    required: False
+    grid: 3
+  - Last name: children[i].name.last
+    default: ${ petitioner.name.last }
+    grid: 5
+  - Date of birth: children[i].birthdate
+    datatype: date
+    min: ${ today().minus(years=19).format('yyyy-MM-dd') }
+    max: ${ today().format('yyyy-MM-dd') }
+    help: |
+      Children who are 19 or older cannot be added here. Address
+      adult-child support (Fam. Code, § 3910) in the additional
+      terms section.
+---
+id: child complete
+code: |
+  children[i].name.first
+  children[i].birthdate
+  children[i].complete = True
+---
+id: another child
+section: rev_children
+question: Do the parties have another minor child together?
+subquestion: |
+  So far: ${ comma_and_list([c.name.full() + ' (age ' + str(c.age_in_years()) + ')' for c in children.complete_elements()]) }.
+yesno: children.there_is_another
+---
+id: custody
+section: rev_children
+question: Custody
+subquestion: |
+  California has no preference for any particular custody
+  arrangement; the court must find that the agreed arrangement is in
+  the children's best interest (Fam. Code, §§ 3011, 3040(d)).
+fields:
+  - "{legal custody|Legal custody}": legal_custody
+    input type: radio
+    choices:
+      - Joint legal custody: joint
+      - Sole legal custody to ${ petitioner }: sole_pet
+      - Sole legal custody to ${ respondent }: sole_resp
+    help: |
+      Joint legal custody means both parents share the right to make
+      decisions about health, education, and welfare (Fam. Code,
+      § 3003). The agreement lists the decisions that need mutual
+      consent.
+  - "{physical custody|Physical custody}": physical_custody
+    input type: radio
+    choices:
+      - Joint physical custody: joint
+      - Joint, with ${ petitioner } as primary residence: primary_pet
+      - Joint, with ${ respondent } as primary residence: primary_resp
+      - Sole physical custody to ${ petitioner }: sole_pet
+      - Sole physical custody to ${ respondent }: sole_resp
+    help: |
+      "Joint physical custody" can still have one primary residence
+      (Fam. Code, § 3004). Designating a primary residence matters for
+      school enrollment and for any later move-away request.
+  - "${ petitioner.ref }'s {timeshare} (percent)": pet_timeshare
+    datatype: integer
+    min: 0
+    max: 100
+    default: 50
+    under text: |
+      ${ respondent.ref } will have the remaining percentage.
+      Use the same figure as the support calculation.
+  - Has California been the children's home state for at least the 6 months before the case was filed?: uccjea_ok
+    datatype: yesnoradio
+    default: True
+    help: |
+      California has jurisdiction to make an initial custody order if
+      it is the children's "home state" (Fam. Code, § 3421, part of
+      the UCCJEA). If the children recently moved from another state
+      or country, confirm jurisdiction before signing.
+  - Country of the children's habitual residence: habitual_residence
+    default: United States of America
+    help: |
+      Custody orders must state the country of habitual residence
+      (Fam. Code, § 3048(a)(2)). This matters under the Hague
+      Abduction Convention.
+validation code: |
+  if legal_custody == 'sole_pet' and physical_custody == 'sole_resp' or legal_custody == 'sole_resp' and physical_custody == 'sole_pet':
+    validation_error("Sole legal custody to one parent and sole physical custody to the other is unusual. Check both answers.", field="physical_custody")
+---
+id: parenting schedule
+section: rev_children
+question: Regular parenting schedule
+fields:
+  - Schedule: parenting_schedule
+    input type: radio
+    choices:
+      - Alternating weeks (week on, week off): alt_weeks
+      - 2-2-5-5 rotation: '2255'
+      - 2-2-3 rotation: '223'
+      - Alternate weekends plus a midweek visit: eow_midweek
+      - Alternate weekends only: eow
+      - Supervised visitation for one parent: supervised
+      - Custom schedule (I will describe it): custom
+      - Separate parenting plan attached (e.g., FL-341 forms): attached
+    help: |
+      **Alternating weeks** and **2-2-5-5** are about 50/50. **2-2-3**
+      works for younger children who should not be away from a parent
+      for a full week. **Alternate weekends plus midweek** is roughly
+      20–30% to the second parent, depending on the length of the
+      weekend.
+  - Exchange day and time: alt_week_exchange
+    js show if: |
+      val("parenting_schedule") == "alt_weeks"
+    default: Sunday at 6:00 p.m.
+  - Which parent has the alternate weekends (or supervised time)?: secondary_parent
+    js show if: |
+      ["eow_midweek", "eow", "supervised"].indexOf(val("parenting_schedule")) >= 0
+    input type: radio
+    choices:
+      - ${ petitioner }: pet
+      - ${ respondent }: resp
+    default: ${ 'resp' if physical_custody in ('primary_pet', 'sole_pet') else 'pet' }
+  - Weekend begins: weekend_start
+    js show if: |
+      ["eow_midweek", "eow"].indexOf(val("parenting_schedule")) >= 0
+    default: Friday after school (or 3:00 p.m. if school is not in session)
+  - Weekend ends: weekend_end
+    js show if: |
+      ["eow_midweek", "eow"].indexOf(val("parenting_schedule")) >= 0
+    default: Sunday at 6:00 p.m.
+  - Midweek visit: midweek_text
+    js show if: |
+      val("parenting_schedule") == "eow_midweek"
+    default: every Wednesday from after school (or 3:00 p.m.) until 7:30 p.m.
+  - Supervision terms: supervision_terms
+    input type: area
+    js show if: |
+      val("parenting_schedule") == "supervised"
+    default: |
+      Visits will be supervised by a professional provider who meets the requirements of California Rules of Court, rule 5.20, at the visiting parent's expense, for up to 4 hours each week.
+  - Describe the schedule: custom_schedule
+    input type: area
+    js show if: |
+      val("parenting_schedule") == "custom"
+  - Name of the attached parenting plan: attached_plan_name
+    js show if: |
+      val("parenting_schedule") == "attached"
+    default: Child Custody and Visitation (Parenting Time) Order Attachment (form FL-341) and its attachments
+  - Exchange location: exchange_location
+    default: curbside at the receiving parent's residence
+    help: |
+      If there is conflict between the parents, consider a neutral,
+      public exchange point (e.g., a police station lobby) or
+      exchanges at school.
+  - Other exchange terms: exchange_notes
+    input type: area
+    required: False
+help: |
+  **Specificity matters.** Vague schedules ("reasonable visitation")
+  are hard to enforce. The court expects days, times, and exchange
+  locations. If there are domestic violence findings or a restraining
+  order, review Fam. Code, § 3044 (presumption against custody to a
+  perpetrator) and § 3031 before drafting.
+
+  **Supervised visitation** providers must meet the standards in
+  Cal. Rules of Court, rule 5.20, and Standard 5.20 of the Standards
+  of Judicial Administration.
+---
+id: holidays
+section: rev_children
+question: Holidays and vacations
+fields:
+  - Holiday schedule: holiday_plan
+    input type: radio
+    choices:
+      - Standard alternating schedule (odd/even years): alternate
+      - Holidays are covered by the attached parenting plan: attached
+      - Custom holiday schedule: custom
+  - In odd-numbered years, who has Thanksgiving?: odd_year_thanksgiving
+    js show if: |
+      val("holiday_plan") == "alternate"
+    input type: radio
+    choices:
+      - ${ petitioner }: pet
+      - ${ respondent }: resp
+    under text: |
+      The other parent has Thanksgiving in even years. Winter break,
+      spring break, and the children's birthdays alternate the same way.
+  - Holiday schedule: holiday_custom
+    input type: area
+    js show if: |
+      val("holiday_plan") == "custom"
+  - Include Mother's Day and Father's Day with the respective parent?: parent_days
+    datatype: yesnoradio
+    default: True
+  - Summer vacation weeks for each parent: summer_weeks
+    datatype: integer
+    min: 0
+    max: 8
+    default: 2
+    under text: |
+      Non-consecutive unless the parents agree. Set to 0 to omit.
+  - Notice required to schedule summer vacation (days): summer_notice_days
+    datatype: integer
+    min: 0
+    default: 60
+help: |
+  Holiday time overrides the regular schedule. The standard
+  provision alternates major holidays between odd and even years so
+  each parent has every holiday every other year.
+---
+id: travel and communication
+section: rev_children
+question: Travel, communication, and other parenting terms
+fields:
+  - Include a right of first refusal?: right_first_refusal
+    datatype: yesnoradio
+    default: False
+    help: |
+      If a parent cannot care for the children for more than the
+      stated number of hours during their time, they must first
+      offer the time to the other parent before using a babysitter.
+      Useful when parents live close and get along; a source of
+      conflict when they do not.
+  - Hours that trigger the right of first refusal: rfr_hours
+    datatype: integer
+    min: 1
+    default: 4
+    show if: right_first_refusal
+  - International travel with the children: international_travel
+    input type: radio
+    choices:
+      - Allowed with written consent of the other parent (consent not unreasonably withheld): consent
+      - Allowed with notice and an itinerary only: notice
+      - Not allowed without a court order: prohibited
+    default: consent
+  - Which parent holds the children's passports?: passport_holder
+    input type: radio
+    choices:
+      - ${ petitioner }: pet
+      - ${ respondent }: resp
+      - Not addressed: none
+    default: none
+  - How will the parents communicate about the children?: coparent_method
+    input type: radio
+    choices:
+      - Text and email: text_email
+      - A co-parenting app: app
+    default: text_email
+  - App name: coparent_app
+    show if:
+      variable: coparent_method
+      is: app
+    default: OurFamilyWizard
+  - Children may call or video chat with the other parent at reasonable times: child_contact
+    datatype: yesnoradio
+    default: True
+help: |
+  **Move-away notice.** The agreement includes the notice required
+  when a parent plans to change the children's residence for more
+  than 30 days: 45 days' written notice by certified mail
+  (Fam. Code, § 3024).
+
+  **Abduction prevention.** If there is a credible risk of
+  abduction, use the Child Abduction Prevention Order Attachment
+  (FL-341(B)) and Fam. Code, § 3048(b) factors instead of a simple
+  travel clause.
+---
+id: public assistance
+section: rev_children
+question: Public assistance and the local child support agency
+fields:
+  - Is either party receiving public assistance (e.g., CalWORKs) for the children, or has an application been made?: public_assistance
+    datatype: yesnoradio
+  - Is the local child support agency (DCSS) involved in the case?: lcsa_involved
+    datatype: yesnoradio
+help: |
+  If support rights are assigned to the county, the parties
+  **cannot** stipulate to support below guideline (Fam. Code,
+  § 4065(a)(5)), and the local child support agency must be given
+  notice and should sign any stipulation on support (Fam. Code,
+  § 17406). The memo will flag this.
+---
+id: child support
+section: rev_children
+question: Child support
+subquestion: |
+  Enter the {guideline support} result from your calculation, then
+  say whether the parties are agreeing to that amount.
+
+  <div class="cph-tip">
+  Use ${ pet_timeshare }% for ${ petitioner.ref } and
+  ${ 100 - pet_timeshare }% for ${ respondent.ref } as the {timeshare}
+  in the calculator so the agreement and the printout match. Attach
+  the printout to the judgment.
+  </div>
+fields:
+  - ${ petitioner.ref }'s gross monthly income: pet_gross_income
+    datatype: currency
+    min: 0
+    grid: 6
+  - ${ respondent.ref }'s gross monthly income: resp_gross_income
+    datatype: currency
+    min: 0
+    grid: 6
+  - Under guideline, who pays child support?: guideline_payor
+    input type: radio
+    choices:
+      - ${ petitioner } pays: pet
+      - ${ respondent } pays: resp
+      - Guideline is $0 (no one pays): none
+  - Guideline amount per month: guideline_cs
+    datatype: currency
+    min: 0
+    js show if: |
+      val("guideline_payor") != "none"
+  - Are the parties agreeing to the guideline amount?: cs_follow_guideline
+    datatype: yesnoradio
+    help: |
+      A non-guideline amount is allowed only with the five findings
+      in Fam. Code, § 4065(a). You will confirm them on the next
+      screen.
+  - Agreed payor: agreed_payor
+    input type: radio
+    choices:
+      - ${ petitioner } pays: pet
+      - ${ respondent } pays: resp
+      - No child support will be paid: none
+    js show if: |
+      val("cs_follow_guideline") === false
+  - Agreed amount per month: agreed_cs
+    datatype: currency
+    min: 0
+    js show if: |
+      val("cs_follow_guideline") === false && val("agreed_payor") != "none"
+  - Support begins on: cs_start_date
+    datatype: date
+    default: ${ today().replace(day=1).plus(months=1).format('yyyy-MM-dd') }
+  - Payment schedule: cs_schedule
+    input type: radio
+    choices:
+      - Once a month, on the 1st: monthly
+      - Half on the 1st and half on the 15th: semi_monthly
+    default: monthly
+validation code: |
+  if guideline_payor != 'none' and not guideline_cs:
+    validation_error("Enter the guideline amount, or choose that guideline is $0.", field="guideline_cs")
+  if not cs_follow_guideline and agreed_payor != 'none' and not agreed_cs:
+    validation_error("Enter the agreed monthly amount.", field="agreed_cs")
+help: |
+  **Guideline formula.** Fam. Code, § 4055 sets the formula. The
+  result is presumed correct (§ 4057) and the court must state on the
+  record the reasons for any deviation.
+
+  **What the court can't do.** The parties cannot take away the
+  court's power to modify child support later (Fam. Code, § 3585;
+  § 4065(c)). Any "non-modifiable" child support term is void.
+
+  **Income.** Use the same incomes that appear on each party's
+  Income and Expense Declaration (FL-150). The incomes are recited in
+  the agreement so a later modification has a clear baseline.
+---
+id: child support final values
+reconsider: True
+code: |
+  guideline_amt = guideline_cs if guideline_payor != 'none' else 0
+  if cs_follow_guideline:
+    cs_payor = guideline_payor
+    cs_amount = guideline_amt
+  else:
+    cs_payor = agreed_payor
+    cs_amount = agreed_cs if agreed_payor != 'none' else 0
+  cs_deviates = (not cs_follow_guideline) and (cs_payor != guideline_payor or abs(cs_amount - guideline_amt) >= 1)
+  cs_below_guideline = cs_deviates and (cs_payor != guideline_payor or cs_amount < guideline_amt)
+  cs_payee = {'pet': 'resp', 'resp': 'pet'}.get(cs_payor)
+  total_income = (pet_gross_income or 0) + (resp_gross_income or 0)
+  pet_income_pct = int(round(100.0 * pet_gross_income / total_income)) if total_income else 50
+---
+id: deviation findings
+section: rev_children
+question: Findings for a non-guideline child support amount
+subquestion: |
+  The agreed amount (${ currency(cs_amount) } per month
+  ${ 'from ' + party_obj[cs_payor].ref if cs_payor != 'none' else '' })
+  differs from guideline (${ currency(guideline_amt) }). Under
+  Fam. Code, § 4065(a), the agreement must state that the parties
+  declare all of the following:
+
+  % if public_assistance:
+  <div class="cph-warning">
+  You said a party receives or has applied for public assistance.
+  Finding 5 cannot be made, so a non-guideline amount is not
+  allowed. Go back and choose the guideline amount, or correct the
+  public assistance answer.
+  </div>
+  % endif
+fields:
+  - The parties declare: cs_deviation_ack
+    datatype: checkboxes
+    choices:
+      - (1) They are fully informed of their rights concerning child support.: informed
+      - (2) The order is being agreed to without coercion or duress.: no_coercion
+      - (3) The agreement is in the best interests of the children.: best_interest
+      - (4) The needs of the children will be adequately met by the stipulated amount.: needs_met
+      - (5) The right to support has not been assigned to the county and no public assistance application is pending.: not_assigned
+    none of the above: False
+  - Reason for the agreed amount: cs_deviation_reason
+    input type: area
+    hint: e.g., Respondent will pay the children's private school tuition directly.
+    help: |
+      Not required by § 4065, but a stated reason helps the court
+      approve the stipulation and documents the bargain if support
+      is modified later.
+validation code: |
+  if not cs_deviation_ack.all_true():
+    validation_error("All five declarations are required for a non-guideline amount (Fam. Code, § 4065(a)).", field="cs_deviation_ack")
+help: |
+  **Below guideline.** If the agreed amount is below guideline, a
+  party can later ask to raise it to guideline **without showing a
+  change of circumstances** (Fam. Code, § 4065(d)). The agreement
+  says this expressly.
+---
+id: add on support
+section: rev_children
+question: Add-on expenses, health insurance, and tax credits
+subquestion: |
+  The law requires child care for work or school and uninsured
+  health costs to be shared, one-half each unless the parties agree
+  otherwise or the court orders a split in proportion to net
+  incomes (Fam. Code, §§ 4061, 4062(a)).
+fields:
+  - How will child care and uninsured health costs be shared?: addon_split
+    input type: radio
+    choices:
+      - Equally (50/50): equal
+      - In proportion to gross incomes (${ pet_income_pct }% ${ petitioner.ref } / ${ 100 - pet_income_pct }% ${ respondent.ref }): proportional
+      - Custom percentage: custom
+    default: equal
+  - ${ petitioner.ref }'s share (percent): addon_pet_pct
+    datatype: integer
+    min: 0
+    max: 100
+    show if:
+      variable: addon_split
+      is: custom
+  - Share the cost of agreed extracurricular activities the same way?: extracurricular_shared
+    datatype: yesnoradio
+    default: True
+    help: |
+      Discretionary add-on (Fam. Code, § 4062(b)). The agreement
+      requires advance written agreement on the activity before the
+      other parent must contribute.
+  - Who maintains health insurance for the children?: health_ins_provider
+    input type: radio
+    choices:
+      - ${ petitioner }: pet
+      - ${ respondent }: resp
+      - Both parents, if available through employment: both
+      - Whichever parent has coverage available at reasonable cost: available
+    default: available
+    help: |
+      The court must require health coverage if it is available at
+      no or reasonable cost (Fam. Code, § 3751). Premiums for the
+      children are usually built into the guideline calculation.
+  - Who claims the children for federal and state tax purposes?: dependency_plan
+    input type: radio
+    choices:
+      - ${ petitioner }: pet
+      - ${ respondent }: resp
+      - Alternate years: alternate
+      - Custom arrangement: custom
+    help: |
+      The parent with more overnights is the "custodial parent" for
+      federal tax purposes. If the other parent will claim the child
+      tax credit, the custodial parent must sign IRS Form 8332. The
+      agreement requires that release when applicable.
+  - In which tax year does ${ petitioner.ref } claim first?: dependency_alt_start
+    datatype: integer
+    min: 2020
+    max: 2100
+    default: ${ today().year }
+    show if:
+      variable: dependency_plan
+      is: alternate
+  - Describe the arrangement: dependency_custom
+    input type: area
+    show if:
+      variable: dependency_plan
+      is: custom
+  - Require life insurance to secure child support?: cs_life_insurance
+    datatype: yesnoradio
+    default: False
+    show if:
+      code: cs_payor != 'none'
+  - Minimum death benefit: cs_life_amount
+    datatype: currency
+    min: 0
+    show if: cs_life_insurance
+---
+id: addon percentages
+reconsider: True
+code: |
+  if addon_split == 'equal':
+    addon_pet_share = 50
+  elif addon_split == 'proportional':
+    addon_pet_share = pet_income_pct
+  else:
+    addon_pet_share = addon_pet_pct
+  addon_resp_share = 100 - addon_pet_share
+---
+id: wage assignment
+section: rev_children
+question: Earnings assignment
+fields:
+  - Earnings assignment for support: wage_assignment
+    input type: radio
+    choices:
+      - Issue and serve the earnings assignment (FL-195) on the payor's employer: serve
+      - Issue the earnings assignment but stay service while payments are made on time: stay
+    default: serve
+help: |
+  Every support order must include an earnings assignment
+  (Fam. Code, § 5230). The court may **stay service** of the
+  assignment if the parties agree in writing to another arrangement
+  for timely payment (Fam. Code, § 5260). If the payor falls behind,
+  the payee can serve it without further order.
+
+  This applies to both child and spousal support.
+---
+id: children summary
+section: rev_children
+question: Children summary
+subquestion: |
+  % if has_minor_children:
+  <table class="table table-sm cph-summary">
+  <tr><th>Children</th><td>${ comma_and_list([c.name.full() + ' (born ' + format_date(c.birthdate, format='MM/dd/yyyy') + ')' for c in children]) }</td></tr>
+  <tr><th>Custody</th><td>${ custody_label(legal_custody, 'legal') }; ${ custody_label(physical_custody, 'physical') }</td></tr>
+  <tr><th>Timeshare</th><td>${ petitioner.ref } ${ pet_timeshare }% / ${ respondent.ref } ${ 100 - pet_timeshare }%</td></tr>
+  <tr><th>Child support</th><td>
+  % if cs_payor == 'none':
+  None
+  % else:
+  ${ currency(cs_amount) } per month from ${ party_obj[cs_payor].ref } to ${ party_obj[cs_payee].ref }
+  % endif
+  ${ '(guideline)' if not cs_deviates else '(non-guideline; guideline is ' + currency(guideline_amt) + ')' }</td></tr>
+  <tr><th>Add-ons</th><td>${ petitioner.ref } ${ addon_pet_share }% / ${ respondent.ref } ${ addon_resp_share }%</td></tr>
+  </table>
+  % else:
+  The parties have no minor children together.
+  % if pregnancy:
+  <div class="cph-warning">A party is pregnant. Custody and support for the expected child will be reserved.</div>
+  % endif
+  % endif
+continue button field: children_reviewed
+---
+id: rev children
+event: rev_children
+section: rev_children
+question: Review children, custody, and child support
+review:
+  - Edit: has_minor_children
+    button: |
+      **Minor children:** ${ word(yesno(has_minor_children)) }
+  - Edit: pregnancy
+    button: |
+      **Pregnancy:** ${ word(yesno(pregnancy)) }
+  - Edit: children.revisit
+    button: |
+      **Children:** ${ comma_and_list(children.complete_elements()) if has_minor_children else 'None' }
+  - Edit: legal_custody
+    button: |
+      **Custody and timeshare:** ${ custody_label(legal_custody, 'legal') }; ${ custody_label(physical_custody, 'physical') }; ${ pet_timeshare }% / ${ 100 - pet_timeshare }%
+  - Edit: parenting_schedule
+    button: |
+      **Schedule:** ${ schedule_label(parenting_schedule) }
+  - Edit: holiday_plan
+    button: |
+      **Holidays:** ${ holiday_plan }; ${ summer_weeks } summer weeks each
+  - Edit: right_first_refusal
+    button: |
+      **Travel and communication:** international travel ${ international_travel }; right of first refusal ${ word(yesno(right_first_refusal)) }
+  - Edit: public_assistance
+    button: |
+      **Public assistance:** ${ word(yesno(public_assistance)) }; DCSS involved: ${ word(yesno(lcsa_involved)) }
+  - Edit: cs_follow_guideline
+    button: |
+      **Child support:** ${ currency(cs_amount) } per month (guideline ${ currency(guideline_amt) })
+  - Edit: cs_deviation_ack
+    button: |
+      **§ 4065 findings:** ${ 'all confirmed' if cs_deviation_ack.all_true() else 'incomplete' }
+  - Edit: addon_split
+    button: |
+      **Add-ons, insurance, tax credits:** ${ addon_pet_share }% / ${ addon_resp_share }%
+  - Edit: wage_assignment
+    button: |
+      **Earnings assignment:** ${ 'serve' if wage_assignment == 'serve' else 'stayed' }
+---
+id: children revisit
+section: rev_children
+question: Edit the list of children
+subquestion: |
+  ${ children.table }
+
+  ${ children.add_action() }
+continue button field: children.revisit
+---
+id: children table
+table: children.table
+rows: children
+columns:
+  - Name: |
+      row_item.name.full()
+  - Date of birth: |
+      format_date(row_item.birthdate)
+edit:
+  - name.first
+  - birthdate
+---
+#######################################################################
+# Spousal support
+#######################################################################
+id: spousal support type
+section: rev_spousal
+question: |
+  ${ 'Partner' if relationship_type == 'rdp' else 'Spousal' } support
+subquestion: |
+  The parties were ${ 'partners' if relationship_type == 'rdp' else 'married' }
+  for **${ marriage_length_words }** before separating.
+
+  % if long_duration:
+  <div class="cph-callout">
+  This is a {long duration} ${ marriage_word }. Unless the parties
+  agree otherwise **in writing**, the court keeps jurisdiction over
+  support indefinitely (Fam. Code, § 4336). A waiver or a
+  termination of jurisdiction must be stated expressly.
+  </div>
+  % else:
+  <div class="cph-tip">
+  For a ${ marriage_word } under 10 years, a "reasonable period" of
+  support is generally one-half the length of the ${ marriage_word }
+  (Fam. Code, § 4320(l)), though the court may order otherwise.
+  </div>
+  % endif
+field: ss_type
+choices:
+  - One party will pay support: pay
+  - Both parties permanently waive support: waive
+  - Support is reserved for both parties (no support now, court keeps jurisdiction): reserve
+help: |
+  **Factors.** Long-term support is based on the Fam. Code, § 4320
+  factors: earning capacity, contributions to the other's career,
+  ability to pay, needs based on the marital standard of living,
+  assets, duration, ability to work without harming dependent
+  children, age and health, domestic violence, tax consequences,
+  hardships, and the goal that the supported party become
+  self-supporting within a reasonable time.
+
+  **Domestic violence.** There is a rebuttable presumption against
+  awarding support to a spouse convicted of domestic violence against
+  the other within five years before filing or at any time after
+  (Fam. Code, § 4325).
+
+  **Reserving vs. waiving.** A reservation keeps the door open: either
+  party can ask for support later. A waiver ends it permanently, even
+  if circumstances change. In a long marriage, a reservation means the
+  court keeps jurisdiction indefinitely.
+
+  **Taxes.** For agreements made after 2018, spousal support is not
+  deductible by the payor or taxable to the recipient for federal
+  income tax. California has not conformed: support is still
+  deductible and taxable on California returns. Confirm with a tax
+  advisor.
+---
+id: spousal support terms
+section: rev_spousal
+question: Support payment terms
+fields:
+  - Who pays support?: ss_payor
+    input type: radio
+    choices:
+      - ${ petitioner }: pet
+      - ${ respondent }: resp
+  - Monthly amount: ss_amount
+    datatype: currency
+    min: 0
+  - Payments begin on: ss_start_date
+    datatype: date
+    default: ${ today().replace(day=1).plus(months=1).format('yyyy-MM-dd') }
+  - Support ends: ss_end_type
+    input type: radio
+    choices:
+      - On a specific date: date
+      - After a number of months: months
+      - On a specific date unless the supported party files a motion to extend before then ({Richmond order}): richmond
+      - No set end date (death, remarriage, or further court order): indefinite
+    help: |
+      A fixed end date with jurisdiction terminated gives finality.
+      A **Richmond order** ends support on the date unless the
+      supported party asks the court to extend it before then; it is
+      common where the supported party is expected to re-enter the
+      workforce.
+  - End date: ss_end_date
+    datatype: date
+    js show if: |
+      val("ss_end_type") == "date" || val("ss_end_type") == "richmond"
+  - Number of months: ss_months
+    datatype: integer
+    min: 1
+    js show if: |
+      val("ss_end_type") == "months"
+  - After support ends, the court's jurisdiction over support: ss_jurisdiction_after
+    input type: radio
+    choices:
+      - Terminates (no further support can ever be ordered): terminate
+      - Is retained: retain
+    default: ${ 'retain' if long_duration else 'terminate' }
+    js show if: |
+      val("ss_end_type") == "date" || val("ss_end_type") == "months"
+    help: |
+      In a long-duration ${ marriage_word }, terminating jurisdiction
+      requires the parties' written agreement (Fam. Code, § 4336(a)).
+      This clause is that agreement, so explain it to the supported
+      party before signing.
+  - Step-downs or other changes in the amount: ss_stepdown
+    input type: area
+    required: False
+    hint: e.g., Beginning January 1, 2028, support reduces to $1,500 per month.
+validation code: |
+  if ss_end_type in ('date', 'richmond') and ss_end_date <= ss_start_date:
+    validation_error("The end date must be after the start date.", field="ss_end_date")
+help: |
+  **Amount.** Many courts use guideline software (DissoMaster
+  "temporary" support) as a starting point, but the § 4320 factors
+  control permanent (long-term) support and temporary guideline
+  amounts are not presumed correct for a judgment.
+
+  **Gavron warning.** The agreement will include the {Gavron warning}
+  for the supported party (Fam. Code, § 4330(b)).
+---
+id: spousal support modification
+section: rev_spousal
+question: Modification, termination, and security
+fields:
+  - Can the court modify the amount or duration later?: ss_modifiable
+    datatype: yesnoradio
+    default: True
+    help: |
+      An agreement that support is **not modifiable** is enforceable
+      only if it is in writing and says so expressly (Fam. Code,
+      § 3591(c)). The parties then live with the bargain even if
+      incomes change dramatically.
+  - Does support end if the supported party remarries or registers a new domestic partnership?: ss_terminate_remarriage
+    datatype: yesnoradio
+    default: True
+    help: |
+      This is the default rule unless the parties agree otherwise in
+      writing (Fam. Code, § 4337). Support always ends on the death
+      of either party unless otherwise agreed.
+  - Require the payor to keep life insurance to secure support?: ss_life_insurance
+    datatype: yesnoradio
+    default: False
+    help: |
+      The court may order the payor to maintain life insurance for
+      the supported spouse (Fam. Code, § 4360). Specify a minimum
+      death benefit; it can decline as the remaining support
+      decreases.
+  - Minimum death benefit: ss_life_amount
+    datatype: currency
+    min: 0
+    show if: ss_life_insurance
+  - Include a cohabitation clause?: ss_cohabitation
+    datatype: yesnoradio
+    default: False
+    help: |
+      If the supported party cohabits with a nonmarital partner,
+      there is a rebuttable presumption of decreased need for support
+      (Fam. Code, § 4323). The clause confirms that cohabitation is a
+      basis to seek modification.
+---
+id: spousal waiver
+section: rev_spousal
+question: Mutual waiver of support
+subquestion: |
+  A waiver is permanent. Confirm that each party understands the
+  following. These statements appear in the agreement.
+fields:
+  - Each party understands that: ss_waiver_ack
+    datatype: checkboxes
+    choices:
+      - The waiver is permanent and cannot be modified, even if circumstances change drastically.: permanent
+      - The court will have no jurisdiction to order support for either party, now or in the future.: no_jurisdiction
+      - Each party has considered their present and future health, income, and needs.: considered
+      - Each party has had the opportunity to consult independent counsel about the waiver.: counsel
+    none of the above: False
+validation code: |
+  if not ss_waiver_ack.all_true():
+    validation_error("Every statement must be confirmed for an enforceable waiver.", field="ss_waiver_ack")
+help: |
+  Courts enforce knowing, voluntary support waivers in MSAs. In a
+  long-duration ${ marriage_word }, a waiver is the written agreement
+  that overrides retained jurisdiction under Fam. Code, § 4336. A
+  waiver obtained while one party was unrepresented and the other
+  was not deserves extra care; consider a separate acknowledgment
+  signed by the unrepresented party.
+---
+id: support arrears
+section: rev_spousal
+question: Temporary support arrears or credits
+fields:
+  - Are there unpaid temporary support arrears, overpayments, or credits to resolve?: support_arrears
+    datatype: yesnoradio
+  - How are they resolved?: arrears_terms
+    input type: area
+    show if: support_arrears
+    hint: e.g., Respondent owes $4,200 in temporary spousal support arrears through June 30, 2026, which Respondent will pay within 60 days.
+help: |
+  Accrued support arrears are vested judgments and cannot be
+  retroactively modified (Fam. Code, § 3651(c)), but the parties may
+  settle them by agreement. If arrears are owed to the county,
+  only the local child support agency can compromise them.
+---
+id: spousal summary
+section: rev_spousal
+question: Spousal support summary
+subquestion: |
+  ${ ss_summary }
+continue button field: spousal_reviewed
+---
+id: spousal summary text
+reconsider: True
+code: |
+  if ss_type == 'pay':
+    ss_summary = currency(ss_amount) + ' per month from ' + party_obj[ss_payor].ref + ', beginning ' + format_date(ss_start_date)
+    if ss_end_type in ('date', 'richmond'):
+      ss_summary += ', ending ' + format_date(ss_end_date)
+    elif ss_end_type == 'months':
+      ss_summary += ', for ' + str(ss_months) + ' months'
+    else:
+      ss_summary += ', with no set end date'
+    ss_summary += '; ' + ('modifiable' if ss_modifiable else 'NOT modifiable') + '.'
+  elif ss_type == 'waive':
+    ss_summary = 'Both parties permanently waive support.'
+  else:
+    ss_summary = 'Support is reserved for both parties.'
+---
+id: rev spousal
+event: rev_spousal
+section: rev_spousal
+question: Review spousal support
+review:
+  - Edit: ss_type
+    button: |
+      **Approach:** ${ ss_summary }
+  - Edit: ss_payor
+    button: |
+      **Payment terms:** ${ currency(ss_amount) } from ${ party_obj[ss_payor].ref }
+  - Edit: ss_modifiable
+    button: |
+      **Modification and security:** ${ 'modifiable' if ss_modifiable else 'not modifiable' }; life insurance: ${ word(yesno(ss_life_insurance)) }
+  - Edit: ss_waiver_ack
+    button: |
+      **Waiver acknowledgments:** confirmed
+  - Edit: support_arrears
+    button: |
+      **Arrears:** ${ arrears_terms if support_arrears else 'None' }

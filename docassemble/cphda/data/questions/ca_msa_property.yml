@@ -1,0 +1,168 @@
+---
+comment: |
+  Division of property and debts for the California MSA interview,
+  laid out like the LASC judgment form (items 501-504): property and
+  debts awarded and confirmed to each party, whether community or
+  separate.
+---
+id: property division
+section: rev_property
+question: Division of property
+subquestion: |
+  List the property each party will receive, **whether community or
+  separate**. Each party receives their property as their separate
+  property, along with any encumbrances on it, and holds the other
+  party harmless from those encumbrances.
+
+  Put **one item on each line**. Each line becomes a numbered item in
+  the agreement.
+fields:
+  - Property: assets_status
+    input type: radio
+    choices:
+      - There is property to award or confirm: some
+      - There are no assets to be disposed of by the court: none
+  - Property awarded and confirmed to ${ petitioner }: pet_property_text
+    input type: area
+    rows: 6
+    required: False
+    show if:
+      variable: assets_status
+      is: some
+    hint: |
+      The real property at 123 Main Street, Los Angeles, CA 90012 (APN 5123-004-012)
+      2021 Toyota RAV4 (VIN ending 4821)
+      Chase checking account ending in 1111
+  - Property awarded and confirmed to ${ respondent }: resp_property_text
+    input type: area
+    rows: 6
+    required: False
+    show if:
+      variable: assets_status
+      is: some
+    hint: |
+      2019 Ford F-150
+      Fidelity brokerage account ending in 2222
+      All of the community interest in the Acme Corp. 401(k) Plan
+validation code: |
+  if assets_status == 'some' and not (item_lines(pet_property_text) or item_lines(resp_property_text)):
+    validation_error("List at least one item, or choose \"There are no assets to be disposed of by the court.\"", field="pet_property_text")
+help: |
+  **Fam. Code, §§ 65, 130, 760–853, 2500–2660.**
+
+  * **Community property** is property acquired during the
+    ${ marriage_word } before the date of separation (§ 760).
+    **{separate property|Separate property}** is property owned before
+    the ${ marriage_word }, received by gift or inheritance, or
+    acquired after separation (§ 770).
+  * The community estate must be divided equally unless the parties
+    agree otherwise in writing (§ 2550). If the division is not
+    equal, add the agreed equalizing payment or the reason for the
+    unequal division under **Additional terms**.
+  * Describe each item so it can be identified: the address and APN
+    of real estate, the year, make, model, and last 4 of the VIN of a
+    vehicle, and the institution, type, and last 4 digits of an
+    account. For a retirement plan divided by {QDRO}, say so in the
+    description.
+  * An agreement that changes the character of property is a
+    {transmutation} and must be in writing (§ 852). The agreement
+    includes that declaration.
+---
+id: debt division
+section: rev_property
+question: Division of debts
+subquestion: |
+  List the debts each party will pay, **whether community or
+  separate**. Each party holds the other harmless from the debts
+  assigned to them.
+
+  Put **one debt on each line**.
+fields:
+  - Debts: debts_status
+    input type: radio
+    choices:
+      - There are debts to assign: some
+      - There are no debts to be disposed of by the court: none
+  - Debts awarded and confirmed to ${ petitioner }: pet_debts_text
+    input type: area
+    rows: 5
+    required: False
+    show if:
+      variable: debts_status
+      is: some
+    hint: |
+      Navient student loan
+      Discover credit card ending in 3333
+  - Debts awarded and confirmed to ${ respondent }: resp_debts_text
+    input type: area
+    rows: 5
+    required: False
+    show if:
+      variable: debts_status
+      is: some
+    hint: |
+      Capital One credit card ending in 9988
+validation code: |
+  if debts_status == 'some' and not (item_lines(pet_debts_text) or item_lines(resp_debts_text)):
+    validation_error("List at least one debt, or choose \"There are no debts to be disposed of by the court.\"", field="pet_debts_text")
+help: |
+  **Fam. Code, §§ 2620–2627.**
+
+  * Debts incurred after the date of separation for non-necessaries
+    are confirmed to the party who incurred them (§ 2623(b)).
+  * Educational loans are generally assigned to the party who received
+    the education (§ 2627).
+  * **Creditors are not bound.** A creditor can still collect a joint
+    debt from either party. The {hold harmless} language gives the
+    paying party a right to reimbursement from the other.
+---
+id: property lists
+reconsider: True
+code: |
+  if assets_status == 'some':
+    pet_property = item_lines(pet_property_text)
+    resp_property = item_lines(resp_property_text)
+  else:
+    pet_property = []
+    resp_property = []
+  if debts_status == 'some':
+    pet_debts = item_lines(pet_debts_text)
+    resp_debts = item_lines(resp_debts_text)
+  else:
+    pet_debts = []
+    resp_debts = []
+---
+id: property summary
+section: rev_property
+question: Property and debt summary
+subquestion: |
+  % for label, items, empty in (('Property to ' + petitioner.ref, pet_property, assets_status == 'none'), ('Property to ' + respondent.ref, resp_property, assets_status == 'none'), ('Debts to ' + petitioner.ref, pet_debts, debts_status == 'none'), ('Debts to ' + respondent.ref, resp_debts, debts_status == 'none')):
+  <h3 class="h6 mt-3">${ label }</h3>
+  % if empty:
+  <p><em>${ 'There are no assets to be disposed of by the court.' if label.startswith('Property') else 'There are no debts to be disposed of by the court.' }</em></p>
+  % elif items:
+  <ol>
+  % for entry in items:
+  <li>${ entry }</li>
+  % endfor
+  </ol>
+  % else:
+  <p><em>None</em></p>
+  % endif
+  % endfor
+
+  Need a change? [Edit property](${ url_action('assets_status') }) or
+  [edit debts](${ url_action('debts_status') }).
+continue button field: property_summary_reviewed
+---
+id: rev property
+event: rev_property
+section: rev_property
+question: Review property and debts
+review:
+  - Edit: assets_status
+    button: |
+      **Property:** ${ 'No assets to be disposed of' if assets_status == 'none' else str(len(pet_property)) + ' item(s) to ' + petitioner.ref + ', ' + str(len(resp_property)) + ' to ' + respondent.ref }
+  - Edit: debts_status
+    button: |
+      **Debts:** ${ 'No debts to be disposed of' if debts_status == 'none' else str(len(pet_debts)) + ' debt(s) to ' + petitioner.ref + ', ' + str(len(resp_debts)) + ' to ' + respondent.ref }

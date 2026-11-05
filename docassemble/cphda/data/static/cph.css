@@ -1,0 +1,54 @@
+/* CPH interview styles: practice-tip callouts and summary tables. */
+.cph-callout,
+.cph-warning,
+.cph-tip {
+  border-left: 4px solid #2c6e9b;
+  background: #f1f6fa;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+  border-radius: 0.25rem;
+  font-size: 0.95rem;
+}
+.cph-warning {
+  border-left-color: #b5651d;
+  background: #fdf5ec;
+}
+.cph-tip {
+  border-left-color: #3b7d4f;
+  background: #f0f7f2;
+}
+.cph-callout ul,
+.cph-warning ul,
+.cph-tip ul {
+  margin-bottom: 0;
+}
+table.cph-summary th {
+  width: 30%;
+  font-weight: 600;
+}
+table.cph-money td.amt,
+table.cph-money th.amt {
+  text-align: right;
+  white-space: nowrap;
+}
+table.cph-money tr.total td {
+  font-weight: 700;
+  border-top: 2px solid #333;
+}
+.cph-hub-card {
+  border: 1px solid #d9dee3;
+  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+.cph-hub-card h3 {
+  margin-top: 0;
+}
+.cph-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 1rem;
+  background: #e7eef4;
+  margin-right: 0.25rem;
+}

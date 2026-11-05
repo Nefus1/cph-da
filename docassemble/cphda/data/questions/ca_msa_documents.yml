@@ -1,0 +1,232 @@
+---
+comment: |
+  Final review, drafting memo, and generated documents for the
+  California MSA interview.
+---
+id: section links
+template: section_links
+content: |
+  <div class="list-group mb-3">
+  <a class="list-group-item list-group-item-action" href="${ url_action('rev_case') }">Case and parties</a>
+  <a class="list-group-item list-group-item-action" href="${ url_action('rev_children') }">Children, custody, and child support</a>
+  <a class="list-group-item list-group-item-action" href="${ url_action('rev_spousal') }">Spousal support</a>
+  <a class="list-group-item list-group-item-action" href="${ url_action('rev_property') }">Property and debts</a>
+  <a class="list-group-item list-group-item-action" href="${ url_action('rev_other') }">Other terms</a>
+  <a class="list-group-item list-group-item-action" href="${ url_action('rev_disclosures') }">Disclosures and signing</a>
+  </div>
+---
+id: final review
+section: finish_sec
+question: Review before drafting
+subquestion: |
+  Open any section to check or change answers. When you continue,
+  the agreement and the drafting memo are assembled from your
+  current answers.
+
+  ${ section_links }
+
+  % if issues_required:
+  <div class="cph-warning">
+  <strong>${ len(issues_required) } item${ 's' if len(issues_required) != 1 else '' } must be resolved before judgment:</strong>
+  <ul>
+  % for item in issues_required:
+  <li>${ item }</li>
+  % endfor
+  </ul>
+  The agreement can still be drafted; these items appear in the memo.
+  </div>
+  % endif
+continue button field: review_done
+continue button label: Draft the agreement
+---
+id: review all event
+event: review_all_event
+section: finish_sec
+question: Review your answers
+subquestion: |
+  Choose a section to review.
+
+  ${ section_links }
+buttons:
+  - Resume: continue
+---
+id: filename
+reconsider: True
+code: |
+  msa_filename = space_to_underscore('MSA ' + petitioner.name.last + ' v ' + respondent.name.last)
+  memo_filename = space_to_underscore('MSA memo ' + petitioner.name.last + ' v ' + respondent.name.last)
+---
+id: status date
+reconsider: True
+code: |
+  if case_filed and defined('service_date') and service_date:
+    earliest_status_date = service_date.plus(months=6)
+  else:
+    earliest_status_date = None
+---
+id: drafting issues
+reconsider: True
+code: |
+  _req = []
+  _review = []
+  _todo = []
+  # Disclosures
+  if fl144_waiver:
+    _todo.append("File the Stipulation and Waiver of Final Declaration of Disclosure (FL-144), signed by both parties, with the judgment packet. Confirm that each party served a preliminary Declaration of Disclosure and a current Income and Expense Declaration (FL-150) before signing it (Fam. Code, § 2105(d)).")
+  else:
+    if not pet_prelim_served:
+      _req.append(petitioner.ref + " has not served a preliminary Declaration of Disclosure (Fam. Code, §§ 2104, 2106).")
+    if not resp_prelim_served:
+      _req.append(respondent.ref + " has not served a preliminary Declaration of Disclosure (Fam. Code, §§ 2104, 2106). In a true default only the petitioner's is required (§ 2110).")
+    if final_disclosures == 'pending':
+      _req.append("Final Declarations of Disclosure must be exchanged, or waived on FL-144, before judgment (Fam. Code, § 2105).")
+  # Case and parties
+  if not case_filed:
+    _todo.append("The case is not yet filed. Insert the case number in the caption after filing.")
+  if earliest_status_date:
+    _todo.append("Marital status can end no earlier than " + format_date(earliest_status_date) + " (six months after service or appearance, Fam. Code, § 2339). Enter that date or later in FL-180 item 4.a.")
+  if pet_has_counsel != resp_has_counsel:
+    _unrep = respondent.ref if pet_has_counsel else petitioner.ref
+    _review.append(_unrep + " is unrepresented while the other party has counsel. Confirm the independent-counsel advisement in writing and consider a separate acknowledgment of the support and property terms (Fam. Code, §§ 721, 2122).")
+  if not pet_has_counsel and not resp_has_counsel:
+    _review.append("Neither party has counsel. Recommend independent review before signing.")
+  if translation_needed:
+    _todo.append("Attach a translator's declaration confirming the agreement was translated into " + translation_language + (" by " + translator_name if translator_name else "") + ".")
+  if dos_compromise:
+    _review.append("The date of separation is a negotiated compromise. Confirm both parties understand its effect on support duration and the characterization of post-separation earnings.")
+  # Children
+  if has_minor_children:
+    if not uccjea_ok:
+      _req.append("California may not be the children's home state. Confirm UCCJEA jurisdiction (Fam. Code, § 3421) before the court makes custody orders.")
+    if public_assistance or lcsa_involved:
+      _req.append("A local child support agency is or may be involved. Give it notice and obtain its signature on the support stipulation (Fam. Code, § 17406).")
+    if cs_deviates:
+      _review.append("Child support (" + currency(cs_amount) + ") differs from guideline (" + currency(guideline_amt) + "). The § 4065(a) declarations are included; the court must still approve the deviation.")
+    _todo.append("Attach the guideline support calculation printout and the Notice of Rights and Responsibilities (FL-192) to the judgment, and file the Child Support Case Registry Form (FL-191).")
+    if parenting_schedule == 'attached':
+      _todo.append("Attach the parenting plan (" + attached_plan_name + ") and check FL-180 item 4.k.")
+  elif pregnancy:
+    _req.append("A party is pregnant. Custody and support for the expected child are reserved; consider delaying judgment until after the birth.")
+  if (has_minor_children and cs_payor != 'none') or ss_type == 'pay':
+    _todo.append("Prepare the Income Withholding for Support (FL-195) for child support and/or the Earnings Assignment Order for Spousal or Partner Support (FL-435)" + (", with the stay of service agreed under Fam. Code, § 5260." if wage_assignment == 'stay' else "."))
+  # Spousal support
+  if ss_type == 'pay':
+    if long_duration and ss_end_type in ('date', 'months') and ss_jurisdiction_after == 'terminate':
+      _review.append("Long-duration " + marriage_word + " with spousal support jurisdiction terminated. This is an express written agreement under Fam. Code, § 4336(a); confirm the supported party understands it.")
+    if not ss_modifiable:
+      _review.append("Spousal support is NON-MODIFIABLE (Fam. Code, § 3591(c)). Confirm both parties understand that neither can seek a change.")
+    if not ss_terminate_remarriage:
+      _review.append("Support continues after the supported party remarries. This overrides the default rule of Fam. Code, § 4337.")
+  if ss_type == 'waive' and long_duration:
+    _review.append("Mutual support waiver in a long-duration " + marriage_word + ". Document the advisement; consider a separate signed acknowledgment.")
+  # Property
+  if pet_property or resp_property:
+    _review.append("The agreement lists the property awarded to each party but does not compute an equal division. Confirm the community estate is divided equally, or recite the parties' written agreement to an unequal division and any equalizing payment under Additional terms (Fam. Code, § 2550).")
+    _todo.append("Prepare the deeds (Interspousal Transfer Grant Deed), DMV title transfers, QDROs, and account transfers needed to carry out the property division.")
+  if pet_debts or resp_debts:
+    _review.append("Creditors are not bound by the debt assignments. Joint accounts should be closed or refinanced into the assigned party's name.")
+  # Other
+  if pet_restore_name or resp_restore_name:
+    _todo.append("Complete FL-180 item 4.f to restore the former name.")
+  _todo.append("Remind both parties to update beneficiary designations on ERISA plans and life insurance after judgment; probate revocation statutes do not reach ERISA plans.")
+  issues_required = _req
+  issues_review = _review
+  issues_todo = _todo
+---
+id: drafting memo
+template: drafting_memo
+content: |
+  # Drafting memo: ${ agreement_title.title() }
+
+  **${ petitioner } v. ${ respondent }**[BR]
+  ${ case_county } County Superior Court${ ', Case No. ' + case_number if case_filed else ' (not yet filed)' }[BR]
+  Prepared ${ format_date(today()) }
+
+  Must be resolved before judgment
+  --------------------------------
+
+  % if issues_required:
+  % for item in issues_required:
+  * ${ item }
+  % endfor
+  % else:
+  * No blocking issues were found.
+  % endif
+
+  For attorney review
+  -------------------
+
+  % if issues_review:
+  % for item in issues_review:
+  * ${ item }
+  % endfor
+  % else:
+  * Nothing flagged.
+  % endif
+
+  Filing and closing checklist
+  ----------------------------
+
+  % for item in issues_todo:
+  * ${ item }
+  % endfor
+
+  Key terms
+  ---------
+
+  * **Type:** ${ proceeding_words.capitalize() }; ${ marriage_length_words } (${ format_date(marriage_date) } to ${ format_date(separation_date) })${ '; long duration' if long_duration else '' }
+  % if has_minor_children:
+  * **Children:** ${ comma_and_list([c.name.full() for c in children]) }
+  * **Custody:** ${ custody_label(legal_custody, 'legal') }; ${ custody_label(physical_custody, 'physical') }; schedule: ${ schedule_label(parenting_schedule) }
+  * **Child support:** ${ currency(cs_amount) + ' per month from ' + party_obj[cs_payor].ref if cs_payor != 'none' else 'None' } (guideline ${ currency(guideline_amt) })
+  % endif
+  * **Spousal support:** ${ ss_summary }
+  * **Property:** ${ 'No assets to be disposed of by the court' if assets_status == 'none' else str(len(pet_property)) + ' item(s) to ' + petitioner.ref + '; ' + str(len(resp_property)) + ' item(s) to ' + respondent.ref }
+  * **Debts:** ${ 'No debts to be disposed of by the court' if debts_status == 'none' else str(len(pet_debts)) + ' debt(s) to ' + petitioner.ref + '; ' + str(len(resp_debts)) + ' debt(s) to ' + respondent.ref }
+
+  This memo is attorney work product prepared to assist in drafting.
+  It is not part of the agreement.
+---
+id: final screen
+event: final_screen
+section: finish_sec
+question: Your documents are ready
+subquestion: |
+  Download the Word version to make edits; the PDF is for review.
+
+  % if issues_required:
+  <div class="cph-warning">
+  ${ len(issues_required) } item${ 's' if len(issues_required) != 1 else '' } must be resolved before
+  judgment. See the drafting memo.
+  </div>
+  % endif
+
+  Need a change? [Review your answers](${ url_action('review_all_event') })
+  and the documents will be rebuilt.
+attachments:
+  - name: ${ agreement_title.title() }
+    filename: ${ msa_filename }
+    variable name: msa_doc
+    docx template file: ca_msa.docx
+    valid formats:
+      - docx
+      - pdf
+  - name: Drafting memo
+    filename: ${ memo_filename }
+    variable name: memo_doc
+    valid formats:
+      - pdf
+      - docx
+    metadata:
+      fontsize: 11pt
+      SingleSpacing: True
+    content: |
+      ${ drafting_memo }
+buttons:
+  - Start a new agreement: restart
+  - Exit: exit
+---
+id: tax year
+reconsider: True
+code: |
+  this_tax_year = today().year

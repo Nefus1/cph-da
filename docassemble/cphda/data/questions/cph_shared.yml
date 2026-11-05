@@ -1,0 +1,11 @@
+---
+comment: |
+  Shared look and feel for every CPH interview. Include this file
+  first in each interview's `include` list.
+---
+features:
+  css: cph.css
+---
+default screen parts:
+  footer: |
+    Draft for attorney review &middot; Not legal advice

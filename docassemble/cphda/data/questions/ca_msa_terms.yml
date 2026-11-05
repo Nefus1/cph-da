@@ -1,0 +1,343 @@
+---
+comment: |
+  Taxes, attorney's fees, name restoration, insurance, dispute
+  resolution, judgment terms, disclosures, and execution for the
+  California MSA interview.
+---
+id: taxes
+section: rev_other
+question: Income taxes
+fields:
+  - For tax year ${ today().year }, the parties will file: tax_filing_current
+    input type: radio
+    choices:
+      - Separate returns: separate
+      - A joint return, if both agree when the return is prepared: joint_option
+      - A joint return: joint
+    default: separate
+    help: |
+      Filing status depends on marital status on December 31. If
+      status has not terminated by then, the parties may still file
+      jointly. A joint return gives joint and several liability for
+      the whole tax.
+
+      **Domestic partners** cannot file joint federal returns; a
+      joint return here means a joint California return.
+  - Taxes, penalties, or refunds later found on prior joint returns are: prior_tax_split
+    input type: radio
+    choices:
+      - Shared equally: equal
+      - Paid by (or credited to) the party whose income, deductions, or omissions caused them: responsible
+    default: responsible
+  - Did the parties file joint returns during the ${ marriage_word }?: filed_joint
+    datatype: yesnoradio
+    default: True
+help: |
+  **Property transfers.** Transfers between spouses incident to
+  divorce are not taxable (26 U.S.C. § 1041), but the recipient takes
+  the transferor's tax basis. Two assets with equal value but
+  different basis are not equal after tax; consider this when
+  trading a low-basis asset (e.g., an old stock position or the
+  house) for cash.
+
+  **Home sale exclusion.** Each party may exclude up to $250,000 of
+  gain on the sale of a principal residence (26 U.S.C. § 121). A
+  party who moved out can still count the other spouse's use under
+  the divorce instrument (§ 121(d)(3)(B)).
+---
+id: attorney fees
+section: rev_other
+question: Attorney's fees and costs
+fields:
+  - Attorney's fees and costs: atty_fees
+    input type: radio
+    choices:
+      - Each party pays their own: own
+      - ${ petitioner } contributes to ${ respondent }'s fees: pet_pays
+      - ${ respondent } contributes to ${ petitioner }'s fees: resp_pays
+    default: own
+  - Amount: atty_fees_amount
+    datatype: currency
+    min: 0
+    js show if: |
+      val("atty_fees") != "own"
+  - Due within (days): atty_fees_due_days
+    datatype: integer
+    min: 1
+    default: 30
+    js show if: |
+      val("atty_fees") != "own"
+  - In a later action to enforce the agreement, the prevailing party recovers fees: enforcement_fees
+    datatype: yesnoradio
+    default: True
+help: |
+  Need-based fees are available to ensure each party has access to
+  representation (Fam. Code, §§ 2030, 2032). A contribution is
+  usually paid directly to the receiving party's attorney.
+---
+id: name restoration
+section: rev_other
+question: Former names
+fields:
+  - Will ${ petitioner } have a former name restored?: pet_restore_name
+    datatype: yesnoradio
+    default: False
+  - Former name to restore: pet_former_name
+    show if: pet_restore_name
+  - Will ${ respondent } have a former name restored?: resp_restore_name
+    datatype: yesnoradio
+    default: False
+  - Former name to restore: resp_former_name
+    show if: resp_restore_name
+help: |
+  On request, the court restores a party's birth name or former
+  name in the judgment (Fam. Code, § 2080). Check item 4.f on the
+  Judgment (FL-180) and give the full name.
+---
+id: insurance and estate planning
+section: rev_other
+question: Insurance and estate planning
+fields:
+  - Keep the other party on existing health insurance until marital status ends, where the plan allows?: spouse_coverage
+    datatype: yesnoradio
+    default: True
+    help: |
+      Coverage for a spouse usually ends when status terminates. The
+      covered party may elect COBRA (or Cal-COBRA) continuation at
+      their own expense. The insured party must give the plan notice
+      of the divorce within 60 days.
+  - Each party will keep their own life, auto, and property insurance after the agreement is signed: own_insurance
+    datatype: yesnoradio
+    default: True
+help: |
+  **Beneficiary designations.** On dissolution or nullity, California
+  revokes many transfers to a former spouse on death: will provisions
+  (Prob. Code, § 6122) and nonprobate transfers such as revocable
+  trusts and TOD deeds (Prob. Code, § 5600). These rules **do not
+  reach ERISA plans** (Egelhoff v. Egelhoff (2001) 532 U.S. 141), so
+  401(k) and employer life insurance beneficiaries must be changed
+  directly. The agreement reminds the parties to update their estate
+  plans after judgment, subject to any automatic temporary
+  restraining orders still in effect (Fam. Code, § 2040).
+---
+id: dispute resolution
+section: rev_other
+question: Disputes
+fields:
+  - If a dispute arises about the agreement: dispute_resolution
+    input type: radio
+    choices:
+      - The parties will first try mediation before going to court (except emergencies): mediation
+      - Either party may go directly to court: court
+    default: mediation
+help: |
+  **The judgment.** The agreement merges into the judgment and is
+  enforced as a court order. It is binding when both parties sign it,
+  and it asks the court to keep jurisdiction to enforce it under Code
+  Civ. Proc., § 664.6.
+---
+id: additional terms
+section: rev_other
+question: Additional terms
+subquestion: |
+  Add any terms the interview did not cover. Each paragraph you type
+  becomes a numbered paragraph in an "Additional Provisions" article.
+fields:
+  - Additional provisions: additional_terms
+    input type: area
+    required: False
+    rows: 8
+    hint: |
+      Petitioner will return the family photo albums to Respondent within 30 days.
+
+      Each party may attend the children's school and extracurricular events.
+help: |
+  Write each provision as a complete sentence. Use the parties'
+  agreed references (**${ petitioner.ref }** and
+  **${ respondent.ref }**) so the agreement reads consistently.
+---
+id: additional terms paragraphs
+reconsider: True
+code: |
+  additional_paragraphs = [p.strip() for p in (additional_terms or '').split('\n') if p.strip()]
+---
+id: other summary
+section: rev_other
+question: Other terms summary
+subquestion: |
+  <table class="table table-sm cph-summary">
+  <tr><th>Taxes</th><td>${ today().year }: ${ {'separate': 'separate returns', 'joint_option': 'joint if both agree', 'joint': 'joint return'}[tax_filing_current] }</td></tr>
+  <tr><th>Attorney's fees</th><td>${ 'Each party pays their own' if atty_fees == 'own' else currency(atty_fees_amount) + ' from ' + (petitioner.ref if atty_fees == 'pet_pays' else respondent.ref) }</td></tr>
+  <tr><th>Name restoration</th><td>${ comma_and_list([n for n in [pet_former_name if pet_restore_name else None, resp_former_name if resp_restore_name else None] if n]) or 'None' }</td></tr>
+  <tr><th>Disputes</th><td>${ 'Mediation first' if dispute_resolution == 'mediation' else 'Court' }</td></tr>
+  <tr><th>Additional provisions</th><td>${ len(additional_paragraphs) }</td></tr>
+  </table>
+continue button field: other_reviewed
+---
+id: rev other
+event: rev_other
+section: rev_other
+question: Review other terms
+review:
+  - Edit: tax_filing_current
+    button: |
+      **Taxes:** ${ tax_filing_current }; prior returns ${ prior_tax_split }
+  - Edit: atty_fees
+    button: |
+      **Attorney's fees:** ${ atty_fees }
+  - Edit: pet_restore_name
+    button: |
+      **Former names:** ${ pet_former_name if pet_restore_name else '—' } / ${ resp_former_name if resp_restore_name else '—' }
+  - Edit: spouse_coverage
+    button: |
+      **Insurance:** spouse coverage until status ends: ${ word(yesno(spouse_coverage)) }
+  - Edit: dispute_resolution
+    button: |
+      **Disputes:** ${ 'Mediation first' if dispute_resolution == 'mediation' else 'Court' }
+  - Edit: additional_terms
+    button: |
+      **Additional provisions:** ${ len(additional_paragraphs) }
+---
+#######################################################################
+# Disclosures and execution
+#######################################################################
+id: fl144 waiver
+section: rev_disclosures
+question: Stipulation and Waiver of Final Declaration of Disclosure
+subquestion: |
+  Form FL-144 waives the final {Declaration of Disclosure}. In it, each
+  party states under penalty of perjury that the preliminary
+  declaration was completed and served.
+field: fl144_waiver
+buttons:
+  - "Yes, FL-144 is filed or will be filed": True
+  - "No": False
+help: |
+  The parties may waive the final declaration by a written
+  stipulation under penalty of perjury (Fam. Code, § 2105(d)),
+  usually on form FL-144. The waiver confirms that each party
+  complied with the preliminary disclosure, completed and exchanged
+  a current Income and Expense Declaration (FL-150), and understands
+  the waiver.
+
+  If you answer **Yes**, the interview skips the preliminary and final
+  disclosure questions, and the agreement recites the waiver. If you
+  answer **No**, you will be asked about each party's preliminary
+  declaration and the final declarations.
+---
+id: preliminary disclosures
+section: rev_disclosures
+question: Preliminary Declarations of Disclosure
+subquestion: |
+  Each party **must** serve a preliminary {Declaration of Disclosure}
+  (FL-140 with a Schedule of Assets and Debts, FL-142, or a Property
+  Declaration, FL-160, and an Income and Expense Declaration, FL-150).
+  The court cannot enter judgment without it.
+fields:
+  - Has ${ petitioner } served the preliminary declaration?: pet_prelim_served
+    datatype: yesnoradio
+  - Date served: pet_prelim_date
+    datatype: date
+    show if: pet_prelim_served
+    max: ${ today().format('yyyy-MM-dd') }
+  - Has ${ respondent } served the preliminary declaration?: resp_prelim_served
+    datatype: yesnoradio
+  - Date served: resp_prelim_date
+    datatype: date
+    show if: resp_prelim_served
+    max: ${ today().format('yyyy-MM-dd') }
+help: |
+  **Mandatory.** The preliminary declaration cannot be waived
+  (Fam. Code, § 2104). Each party files proof of service (FL-141),
+  not the declaration itself. In a default with no response, only
+  the petitioner's preliminary declaration is required (§ 2110), but
+  the respondent's is still best practice in an agreed case.
+
+  **Consequences.** A judgment entered without compliance can be set
+  aside (Fam. Code, § 2107(d)), and assets not disclosed can be
+  divided later (§ 2556). Breach of the disclosure duty can result
+  in an award of 100% of an undisclosed asset to the other party
+  (§ 1101(h)).
+---
+id: final disclosures
+section: rev_disclosures
+question: Final Declarations of Disclosure
+field: final_disclosures
+choices:
+  - Exchanged by both parties: exchanged
+  - Not yet exchanged; to be exchanged before judgment: pending
+help: |
+  The agreement recites the disclosure status. Final declarations
+  must be exchanged before judgment unless the parties waive them on
+  FL-144 (Fam. Code, § 2105(d)).
+---
+id: final disclosure status
+reconsider: True
+code: |
+  if fl144_waiver:
+    final_status = 'waived'
+  else:
+    final_status = final_disclosures
+---
+id: execution
+section: rev_disclosures
+question: Signing
+fields:
+  - Include notary acknowledgment pages for the parties' signatures?: notarize
+    datatype: yesnoradio
+    default: False
+    help: |
+      Notarization is not required for an MSA, but it is required
+      for the respondent's signature on a **default judgment with a
+      written agreement** (see the FL-180 instructions and the
+      Judgment Checklist, FL-182), and it eliminates disputes about authenticity.
+      Deeds must be notarized separately to be recorded.
+  - Leave signature dates blank for the parties to fill in?: blank_sign_dates
+    datatype: yesnoradio
+    default: True
+help: |
+  The agreement includes an "Approved as to form" block for each attorney of record. Counsel
+  approves form only; the signature does not make counsel a party.
+---
+id: disclosures summary
+section: rev_disclosures
+question: Disclosures and signing summary
+subquestion: |
+  <table class="table table-sm cph-summary">
+  % if fl144_waiver:
+  <tr><th>Declarations of disclosure</th><td>Final declarations waived on FL-144; preliminary declarations confirmed in the waiver</td></tr>
+  % else:
+  <tr><th>Preliminary declarations</th><td>${ petitioner.ref }: ${ 'served ' + format_date(pet_prelim_date) if pet_prelim_served else '<strong>not served</strong>' };
+  ${ respondent.ref }: ${ 'served ' + format_date(resp_prelim_date) if resp_prelim_served else '<strong>not served</strong>' }</td></tr>
+  <tr><th>Final declarations</th><td>${ {'exchanged': 'Exchanged', 'pending': 'Pending'}[final_disclosures] }</td></tr>
+  % endif
+  <tr><th>Notary pages</th><td>${ word(yesno(notarize)) }</td></tr>
+  </table>
+
+  % if not fl144_waiver and not (pet_prelim_served and resp_prelim_served):
+  <div class="cph-warning">
+  Judgment cannot be entered until the preliminary declarations are
+  served (Fam. Code, § 2106). The memo lists this as an open item.
+  </div>
+  % endif
+continue button field: disclosures_reviewed
+---
+id: rev disclosures
+event: rev_disclosures
+section: rev_disclosures
+question: Review disclosures and signing
+review:
+  - Edit: fl144_waiver
+    button: |
+      **FL-144 waiver:** ${ word(yesno(fl144_waiver)) }
+  - Edit: pet_prelim_served
+    show if: pet_prelim_served
+    button: |
+      **Preliminary declarations:** ${ word(yesno(pet_prelim_served)) } / ${ word(yesno(resp_prelim_served)) }
+  - Edit: final_disclosures
+    show if: pet_prelim_served
+    button: |
+      **Final declarations:** ${ final_disclosures }
+  - Edit: notarize
+    button: |
+      **Notary pages:** ${ word(yesno(notarize)) }
